@@ -1,0 +1,30 @@
+
+	Teil 1: In-Memory File System
+	- - - - - - - - - - - - - - - -
+	
+	Teilaufgabe 1a: Design
+	- - - - - - - - - - - - - - - -
+	- Array als Speicher (mit max 64 Dateien)
+	- Attribute der Dateien
+		- Dateiname -> String (max length)
+		- Dateigröße -> unsigned int in 512er Schritten
+		- Benutzer / Gruppen-ID -> unsigned int
+		- Zugriffsberechtigung -> Key, Value Pairs (Key = User(level), Value=Rechte) 
+			oder Rechte erneut als K/V Pair mit Key = Recht, Value = 0 oder 1
+		- Zeitpunkt -> mit Bibliothek
+		- Daten der Datei -> als Charpointer (Chararray)
+		- NUM_DIR_ENTRIES -> Anzahl der Dateien, die gespeichert werden können.
+		- NUM_OPEN_FILES -> max 64 -> tracken / mitzählen!
+		- Path -> String
+		
+
+	- Evt später: mkdir implementieren
+
+	
+	TODOS für Mittwoch:
+		- Am Mittwoch als erstes zusammen: Struct und mknod und alles was direkt dran
+
+
+	Fragen für Mittwoch:
+		- Was ist die Gruppen-ID?	
+		- Zugriffsrechte, wie genau
