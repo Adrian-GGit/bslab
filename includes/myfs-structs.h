@@ -16,4 +16,17 @@
 
 // TODO: Add structures of your file system here
 
+struct MyFsFileInfo {
+    char fileName[NAME_LENGTH];
+    size_t size = 0;
+    unsigned int userId;
+    unsigned int groupId;
+
+    time_t a_time;
+    time_t m_time;
+    time_t c_time;
+
+    char* data;
+};
+
 #endif /* myfs_structs_h */
