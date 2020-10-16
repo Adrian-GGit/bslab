@@ -9,6 +9,8 @@
 #include <fuse.h>
 #include <cmath>
 
+#include <time.h>
+
 #include "myfs.h"
 #include "blockdevice.h"
 #include "myfs-structs.h"
@@ -21,7 +23,10 @@ protected:
 public:
     static MyInMemoryFS *Instance();
 
+    int count;
+
     // TODO: [PART 1] Add attributes of your file system here
+    MyFsFileInfo myFiles[NUM_DIR_ENTRIES];
 
     MyInMemoryFS();
     ~MyInMemoryFS();
