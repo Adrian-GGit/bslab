@@ -43,8 +43,8 @@
 /// You may add your own constructor code here.
 MyInMemoryFS::MyInMemoryFS() : MyFS() {
 
-    // TODO: [PART 1] Add your constructor code here
     count = 0;
+    openFiles = 0;
 
 }
 
@@ -53,8 +53,8 @@ MyInMemoryFS::MyInMemoryFS() : MyFS() {
 /// You may add your own destructor code here.
 MyInMemoryFS::~MyInMemoryFS() {
 
-    // TODO: [PART 1] Add your cleanup code here
-    /*bislang empty da kein speicher allokiert wird*/
+    delete _instance;   //evtl auch wieder raus machen
+
 }
 
 /// @brief Create a new file.
@@ -70,13 +70,20 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
     if (count < NUM_DIR_ENTRIES) {
         MyFsFileInfo newData;
-        newData.fileName[0] = *(path++); //skip '/'
+        newData.fileName[0] = *(path++); //skip '/'     //TODO prüfe ob das funktioniert
         myFiles[count] = newData;
         count += 1;
 
-        newData.data = static_cast<char*>(malloc(newData.size));
+        newData.data = static_cast<char*>(malloc(newData.blockSize));
+
+        newData.a_time = time(NULL);    //current time
+        newData.m_time = time(NULL);
+        newData.c_time = time(NULL);
+
+        newData.userId = getuid();
+        newData.groupId = getgid();
     } else{
-        RETURN(-EPERM);
+        RETURN(-ENOENT);
     }
 
     RETURN(0);
@@ -95,6 +102,7 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
     for (int i = 0; i < count; i++) {
         if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
             fillHole = true;
+            free(myFiles[i].data);
         }
         if (fillHole) {   //delete element and fill hole
             myFiles[i] = myFiles[i + 1];
@@ -121,9 +129,15 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
 int MyInMemoryFS::fuseRename(const char *path, const char *newpath) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
-
-    return 0;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
+            myFiles[i].fileName[0] = *(newpath++);
+            myFiles[i].m_time = time(NULL);
+            myFiles[i].a_time = time(NULL);
+            RETURN(0);
+        }
+    }
+    return -ENOENT;
 }
 
 /// @brief Get file meta data.
@@ -152,47 +166,32 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
     //		            refers to.
 
-    //statbuf->st_uid = getuid(); // The owner of the file/directory is the user who mounted the filesystem
-    //statbuf->st_gid = getgid(); // The group of the file/directory is the same as the group of the user who mounted the filesystem
-    //statbuf->st_atime = time( NULL ); // The last "a"ccess of the file/directory is right now
-    //statbuf->st_mtime = time( NULL ); // The last "m"odification of the file/directory is right now
-
     int ret= 0;
 
     if ( strcmp( path, "/" ) == 0 )
     {
         statbuf->st_mode = S_IFDIR | 0755;
         statbuf->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
+        RETURN(ret);
     }
 
     for (int i = 0; i < count; i++) {
-        if (strcmp(path, myFiles[i].fileName) == 0) {
-            statbuf->st_mode = S_IFREG | 0644;          //??????????
+        if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
+            statbuf->st_mode = S_IFREG | 0644;
             statbuf->st_nlink = 1;
             statbuf->st_size = myFiles[i].size;
 
             statbuf->st_uid = myFiles[i].userId;
             statbuf->st_gid = myFiles[i].groupId;
 
-            statbuf->st_atime = myFiles[i].a_time;
-            statbuf->st_mtime = myFiles[i].m_time;
+            statbuf->st_atime = time(NULL);
+            statbuf->st_mtime = time(NULL); //evtl raus damit, da eigentlich nicht modifiziert wird (war beim bsp aber da)
 
             RETURN(ret);
         }
     }
 
     RETURN(-ENOENT);
-
-    //else if ( strcmp( path, "/file54" ) == 0 || ( strcmp( path, "/file349" ) == 0 ) )
-    //{
-        //statbuf->st_mode = S_IFREG | 0644;
-        //statbuf->st_nlink = 1;
-        //statbuf->st_size = 1024;
-    //}
-    //else
-        //ret= -ENOENT;
-
-    //RETURN(ret);
 }
 
 /// @brief Change file permissions.
@@ -221,7 +220,13 @@ int MyInMemoryFS::fuseChmod(const char *path, mode_t mode) {
 int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
+    for (int i = 0; i < count; i++) {
+        if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
+            myFiles[i].userId = uid;
+            myFiles[i].groupId = gid;
+            myFiles[i].m_time = time(NULL);
+        }
+    }
 
     RETURN(0);
 }
@@ -237,9 +242,20 @@ int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
 int MyInMemoryFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
+    if (openFiles > NUM_OPEN_FILES) {
+        RETURN(-ENOENT);
+    }
 
-    RETURN(0);
+    for (int i = 0; i < count; i++) {
+        if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
+            //TODO implement missing code
+            myFiles[i].a_time = time(NULL);
+            openFiles++;
+            RETURN(0);
+        }
+    }
+
+    RETURN(-ENOENT);
 }
 
 /// @brief Read from a file.
@@ -264,34 +280,15 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
 
-    /*char file54Text[] = "Hello World From File54!\n";
-    char file349Text[] = "Hello World From File349!\n";
-    char *selectedText = NULL;*/
-
-    // ... //
-
     for (int i = 0; i < count; i++) {
         if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
             char* selectedText = myFiles[i].data;
             memcpy( buf, selectedText + offset, size );
-
+            myFiles[i].a_time = time(NULL);
             RETURN((size - offset));
         }
     }
     return -ENOENT;
-
-    /*if ( strcmp( path, "/file54" ) == 0 )
-        selectedText = file54Text;
-    else if ( strcmp( path, "/file349" ) == 0 )
-        selectedText = file349Text;
-    else
-        return -ENOENT;*/
-
-    // ... //
-
-    //memcpy( buf, selectedText + offset, size );
-
-    //RETURN((int) (strlen( selectedText ) - offset));
 }
 
 /// @brief Write to a file.
@@ -312,22 +309,45 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
-
     for (int i = 0; i < count; i++) {
         if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
 
-            int blockSize = myFiles[i].size;
-            int neededBlockSize = blockSize + size;     //new total size
+            int blockSize = myFiles[i].blockSize;
+            int currentSize = myFiles[i].size;
+            int newSize = currentSize + size;
 
-            myFiles[i].size = neededBlockSize;
+            if (newSize <= blockSize) {  //ist noch genug Platz im alten Block vorhanden
+                myFiles[i].data = static_cast<char*>(realloc(myFiles[i].data, newSize));
+
+                char buffer[size];
+                memcpy(buffer, (buf + offset), size);
+
+                myFiles[i].data += myFiles[i].size;
+                myFiles[i].data = buffer;       //TODO prüfe
+            } else{         //ist nicht mehr genug Platz im alten Block muss berechnet werden wie viele neue Blöcke hinzugefügt werden müssen
+                //TODO: finde heraus wie viele neue blöcke benötigt werden
+
+
+                myFiles[i].data = static_cast<char*>(realloc(myFiles[i].data, newSize));
+
+                char buffer[size];
+                memcpy(buffer, (buf + offset), size);
+
+                myFiles[i].data += myFiles[i].size;
+                myFiles[i].data = buffer;
+            }
+
+            /*myFiles[i].size = neededBlockSize;
             myFiles[i].data = static_cast<char*>(realloc(myFiles[i].data, neededBlockSize));    //extend memory for data
 
             char buffer[neededBlockSize];
             memcpy(buffer, (buf + offset), neededBlockSize);    //copy data to write into buffer
 
             myFiles[i].data += blockSize;
-            myFiles[i].data = buffer;       //write data which should be written into data
+            myFiles[i].data = buffer;*/      //write data which should be written into data
+
+            myFiles[i].a_time = time(NULL);
+            myFiles[i].m_time = time(NULL);
 
             RETURN((size - offset));
         }
@@ -345,9 +365,15 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
 int MyInMemoryFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
+    for (int i = 0; i < count; i++) {
+        if (strcmp(path, strcat("/", myFiles[i].fileName)) == 0) {
+            //TODO implement rest
+            openFiles--;
+            RETURN(0);
+        }
+    }
 
-    RETURN(0);
+    RETURN(-ENOENT);
 }
 
 /// @brief Truncate a file.
@@ -404,8 +430,6 @@ int MyInMemoryFS::fuseReaddir(const char *path, void *buf, fuse_fill_dir_t fille
 
     if ( strcmp( path, "/" ) == 0 ) // If the user is trying to show the files/directories of the root directory show the following
     {
-        //filler( buf, "file54", NULL, 0 );
-        //filler( buf, "file349", NULL, 0 );
         for (int i = 0; i < count; i++) {
             filler(buf, myFiles[i].fileName, NULL, 0);
         }
