@@ -73,6 +73,9 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         if(index >= 0) {
             RETURN(-EEXIST)
         }
+
+        LOGF("Filename: %s", path);
+
         MyFsFileInfo newData;
         copyFileNameIntoArray(path++, newData.fileName);
         myFiles[count] = newData;
@@ -105,8 +108,9 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
     bool fillHole = false;
     for (int i = 0; i < count; i++) {
         if (strcmp(path++, myFiles[i].fileName) == 0) {
+            LOGF("Index: %d | count: %d | filename: %s\n", i, count, myFiles[i].fileName);
             fillHole = true;
-            free(myFiles[i].data);
+            //free(myFiles[i].data);        //macht aus irgendeinem Grund Probleme (mount ordner ist nicht mehr sichtbar)
         }
         if (fillHole) {   //delete element and fill hole
             myFiles[i] = myFiles[i + 1];
@@ -115,6 +119,7 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
 
     if(fillHole) {
         count--;
+        LOGF("count: %d |\n", count);
         RETURN(0);
     }
 
@@ -193,7 +198,7 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
         RETURN(ret);
     }
 
-    RETURN(index);
+    RETURN(-ENOENT);
 }
 
 /// @brief Change file permissions.
@@ -365,9 +370,22 @@ int MyInMemoryFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo)
 int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
+    int index = searchForFile(path);
+    int oldSize = myFiles[index].size;
 
-    return 0;
+    if (index >= 0) {
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
+        if (newSize > oldSize) {
+            char buf[newSize - oldSize];
+            memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
+            memcpy(myFiles[index].data + oldSize, buf , newSize);
+        }
+        myFiles[index].size = newSize;
+        myFiles[index].blockSize = (newSize / myFiles[index].blockSize) + 1;
+        RETURN(0);
+    } else{
+        RETURN(index);
+    }
 }
 
 /// @brief Truncate a file.
@@ -384,6 +402,7 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file
     LOGM();
 
     // TODO: [PART 1] Implement this!
+    //dasselbe wie bei truncate oben? achtung dieses truncate wird bei offenen dateien angewendet!
 
     RETURN(0);
 }
