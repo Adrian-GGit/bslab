@@ -19,7 +19,7 @@
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
     size_t blockSize = BLOCK_SIZE;  //vielfaches von BLOCK_SIZE
-    size_t size = 0;
+    size_t size;
     unsigned int userId;
     unsigned int groupId;
 

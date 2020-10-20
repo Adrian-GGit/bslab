@@ -78,8 +78,6 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
         MyFsFileInfo newData;
         copyFileNameIntoArray(path++, newData.fileName);
-        myFiles[count] = newData;
-        count += 1;
 
         newData.data = static_cast<char*>(malloc(newData.blockSize));
 
@@ -89,6 +87,9 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
         newData.userId = getuid();
         newData.groupId = getgid();
+
+        myFiles[count] = newData;
+        count += 1;
     } else{
         RETURN(-ENOMEM);
     }
@@ -110,7 +111,8 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
         if (strcmp(path++, myFiles[i].fileName) == 0) {
             LOGF("Index: %d | count: %d | filename: %s\n", i, count, myFiles[i].fileName);
             fillHole = true;
-            //free(myFiles[i].data);        //macht aus irgendeinem Grund Probleme (mount ordner ist nicht mehr sichtbar)
+            free(myFiles[i].data);        //macht aus irgendeinem Grund Probleme (mount ordner ist nicht mehr sichtbar)
+            //myFiles[i].size = 0;          //auf bsp folien drauf
         }
         if (fillHole) {   //delete element and fill hole
             myFiles[i] = myFiles[i + 1];
@@ -119,7 +121,6 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
 
     if(fillHole) {
         count--;
-        LOGF("count: %d |\n", count);
         RETURN(0);
     }
 
@@ -174,6 +175,11 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
     //		            refers to.
 
+    statbuf->st_uid = getuid();
+    statbuf->st_gid = getgid();
+    statbuf->st_atime = time(NULL);
+    statbuf->st_mtime = time(NULL);
+
     int ret= 0;
 
     if ( strcmp( path, "/" ) == 0 )
@@ -189,16 +195,10 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
         statbuf->st_nlink = 1;
         statbuf->st_size = myFiles[index].size;
 
-        statbuf->st_uid = myFiles[index].userId;
-        statbuf->st_gid = myFiles[index].groupId;
-
-        statbuf->st_atime = time(NULL);
-        statbuf->st_mtime = time(NULL); //evtl raus damit, da eigentlich nicht modifiziert wird (war beim bsp aber da)
-
         RETURN(ret);
     }
 
-    RETURN(-ENOENT);
+    RETURN(index);
 }
 
 /// @brief Change file permissions.
@@ -234,7 +234,7 @@ int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
         myFiles[index].m_time = time(NULL);
     }
 
-    RETURN(0);
+    RETURN(index);
 }
 
 /// @brief Open a file.
@@ -372,7 +372,7 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
 
     int index = searchForFile(path);
     int oldSize = myFiles[index].size;
-
+    
     if (index >= 0) {
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
         if (newSize > oldSize) {
@@ -401,10 +401,23 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
 int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
-    //dasselbe wie bei truncate oben? achtung dieses truncate wird bei offenen dateien angewendet!
+    int index = searchForFile(path);
+    int oldSize = myFiles[index].size;
 
-    RETURN(0);
+    if (index >= 0) {
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
+        if (newSize > oldSize) {
+            char buf[newSize - oldSize];
+            memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
+            memcpy(myFiles[index].data + oldSize, buf , newSize);
+        }
+        myFiles[index].size = newSize;
+        myFiles[index].blockSize = (newSize / myFiles[index].blockSize) + 1;
+        RETURN(0);
+    } else{
+        RETURN(index);
+    }
+    //dasselbe wie bei truncate oben? achtung dieses truncate wird bei offenen dateien angewendet!
 }
 
 /// @brief Read a directory.
