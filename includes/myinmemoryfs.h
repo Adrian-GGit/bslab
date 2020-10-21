@@ -56,6 +56,7 @@ public:
 
     void copyFileNameIntoArray(const char *fileName, char pInfo[64]);
     int searchForFile(const char *string);
+    void updateTime(int index, int time);
 };
 
 #endif //MYFS_MYINMEMORYFS_H
