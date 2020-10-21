@@ -68,18 +68,20 @@ MyInMemoryFS::~MyInMemoryFS() {
 int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
     LOGM();
 
+    LOGF("path: %s | count: %d | numdirs: %d\n", path, count, NUM_DIR_ENTRIES);
+
     if (count < NUM_DIR_ENTRIES) {
         int index = searchForFile(path);
         if(index >= 0) {
             RETURN(-EEXIST)
         }
 
-        LOGF("Filename: %s", path);
-
         MyFsFileInfo newData;
         copyFileNameIntoArray(path++, newData.fileName);
 
         newData.data = static_cast<char*>(malloc(newData.blockSize));
+
+        newData.mode = mode;  //root: read,write,execute; group: read,execute; others:read,execute -> to give everyone all perms: 0777
 
         newData.a_time = time(NULL);    //current time
         newData.m_time = time(NULL);
@@ -94,6 +96,7 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         RETURN(-ENOMEM);
     }
 
+    LOGF("count: %d", count);
     RETURN(0);
 }
 
@@ -109,7 +112,6 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
     bool fillHole = false;
     for (int i = 0; i < count; i++) {
         if (strcmp(path++, myFiles[i].fileName) == 0) {
-            LOGF("Index: %d | count: %d | filename: %s\n", i, count, myFiles[i].fileName);
             fillHole = true;
             free(myFiles[i].data);        //macht aus irgendeinem Grund Probleme (mount ordner ist nicht mehr sichtbar)
             //myFiles[i].size = 0;          //auf bsp folien drauf
@@ -142,8 +144,7 @@ int MyInMemoryFS::fuseRename(const char *path, const char *newpath) {
     int index = searchForFile(path);
     if(index >= 0) {
         copyFileNameIntoArray(newpath++, myFiles[index].fileName);
-        myFiles[index].m_time = time(NULL);
-        myFiles[index].a_time = time(NULL);
+        updateTime(index, 1);
         RETURN(0);
     }
     RETURN(index);
@@ -191,7 +192,7 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
 
     int index = searchForFile(path);
     if(index >= 0) {
-        statbuf->st_mode = S_IFREG | 0755;  //root: read,write,execute; group: read,execute; others:read,execute -> to give everyone all perms: 0777
+        statbuf->st_mode = myFiles[index].mode;
         statbuf->st_nlink = 1;
         statbuf->st_size = myFiles[index].size;
 
@@ -211,7 +212,11 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
 int MyInMemoryFS::fuseChmod(const char *path, mode_t mode) {
     LOGM();
 
-    // TODO: [PART 1] Implement this!
+    int index = searchForFile(path);
+    if(index >= 0) {
+        myFiles[index].mode = mode;
+        updateTime(index, 1);
+    }
 
     RETURN(0);
 }
@@ -231,7 +236,7 @@ int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
     if(index >= 0) {
         myFiles[index].userId = uid;
         myFiles[index].groupId = gid;
-        myFiles[index].m_time = time(NULL);
+        updateTime(index, 1);
     }
 
     RETURN(index);
@@ -254,8 +259,8 @@ int MyInMemoryFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 
     int index = searchForFile(path);
     if(index >= 0) {
-        myFiles[index].a_time = time(NULL);
         openFiles++;
+        updateTime(index, 0);
         RETURN(0);
     }
 
@@ -292,7 +297,7 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
         int toRead = size < begin ? size : begin;   //ist size < begin -> lese nur bestimmte anzahl bytes nach offset, size >= begin -> lese alles ab offset
 
         memcpy( buf, selectedText + offset, toRead);
-        myFiles[index].a_time = time(NULL);
+        updateTime(index, 0);
         RETURN(toRead);
     }
     return index;
@@ -316,16 +321,18 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
+    LOGF("path: %s | writeSize0: %u | calcSize: %d", path, size, 20*1024*1024);
+
     int index = searchForFile(path);
     if (index >= 0) {
 
-        int blockSize = myFiles[index].blockSize;
-        int currentSize = myFiles[index].size;
-        int newSize = currentSize + size;
-        int numBlocks = (newSize / blockSize) + 1;
+        unsigned int blockSize = myFiles[index].blockSize;
+        unsigned int currentSize = myFiles[index].size;
+        unsigned int newSize = currentSize + size;
+        unsigned int numBlocks = (newSize / blockSize) + 1;
 
         if (newSize > blockSize) {  //ist nicht mehr genug Platz im alten Block muss die Anzahl der Blöcke erweitert werden
-            myFiles[index].blockSize = numBlocks;
+            myFiles[index].blockSize = numBlocks * BLOCK_SIZE;
         }
 
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, numBlocks));
@@ -333,8 +340,7 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
 
         myFiles[index].size = newSize;
 
-        myFiles[index].a_time = time(NULL);
-        myFiles[index].m_time = time(NULL);
+        updateTime(index, 1);
 
         RETURN((size));
     }
@@ -351,8 +357,10 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
 int MyInMemoryFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    if (searchForFile(path) >= 0) {
+    int index = searchForFile(path);
+    if (index >= 0) {
         openFiles--;
+        updateTime(index, 0);
         RETURN(0);
     }
 
@@ -381,7 +389,9 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
             memcpy(myFiles[index].data + oldSize, buf , newSize);
         }
         myFiles[index].size = newSize;
-        myFiles[index].blockSize = (newSize / myFiles[index].blockSize) + 1;
+        myFiles[index].blockSize = ((newSize / myFiles[index].blockSize) + 1)  * BLOCK_SIZE;
+
+        updateTime(index, 1);
         RETURN(0);
     } else{
         RETURN(index);
@@ -412,7 +422,9 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file
             memcpy(myFiles[index].data + oldSize, buf , newSize);
         }
         myFiles[index].size = newSize;
-        myFiles[index].blockSize = (newSize / myFiles[index].blockSize) + 1;
+        myFiles[index].blockSize = ((newSize / myFiles[index].blockSize) + 1)  * BLOCK_SIZE;
+
+        updateTime(index, 1);
         RETURN(0);
     } else{
         RETURN(index);
@@ -503,6 +515,24 @@ int MyInMemoryFS::searchForFile(const char* path) {
         }
     }
     RETURN(-ENOENT)
+}
+
+void MyInMemoryFS::updateTime(int index, int timeIndex) {
+    //time == 0: a_time
+    //time == 1: a_time + m_time
+    //time == 2: a_time + m_time + c_time
+    time_t update = time(NULL);
+    if (timeIndex >= 0) {
+        myFiles[index].a_time = update;
+        if (timeIndex >= 1) {
+            myFiles[index].m_time = update;
+            if (timeIndex >= 2) {
+                myFiles[index].c_time = update;
+            }
+        }
+    }
+
+
 }
 
 

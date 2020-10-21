@@ -23,6 +23,8 @@ struct MyFsFileInfo {
     unsigned int userId;
     unsigned int groupId;
 
+    mode_t mode;
+
     time_t a_time;
     time_t m_time;
     time_t c_time;
