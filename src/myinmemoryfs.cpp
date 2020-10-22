@@ -93,12 +93,10 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         myFiles[count] = newData;
         count += 1;
 
-        LOGF("size: %lu", newData.size);
     } else{
         RETURN(-ENOMEM);
     }
 
-    LOGF("count: %d", count);
     RETURN(0);
 }
 
@@ -263,6 +261,9 @@ int MyInMemoryFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
     if(index >= 0) {
         openFiles++;
         updateTime(index, 0);
+
+        LOGF("data: %s\n", myFiles[index].data);
+
         RETURN(0);
     }
 
@@ -292,6 +293,7 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
 
     int index = searchForFile(path);
+    LOGF("DataBeforeReading: %s", myFiles[index].data);
     if(index >= 0) {
         char* selectedText = myFiles[index].data;
         unsigned long begin = myFiles[index].size - offset;
@@ -300,6 +302,9 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 
         memcpy( buf, selectedText + offset, toRead);
         updateTime(index, 0);
+
+        LOGF("bufAfterReading: %s | selectedText: %s | dataAfterReading: %s | readingSize: %lu\n", buf, selectedText, myFiles[index].data, toRead);
+
         RETURN(toRead);
     }
     return index;
@@ -323,7 +328,7 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    LOGF("path: %s | writeSize: %lu | calcSize: %lu", path, size, 20*1024*1024);
+    //LOGF("path: %s | writeSize: %lu | calcSize: %lu", path, size, 20*1024*1024);
 
     int index = searchForFile(path);
     if (index >= 0) {
@@ -331,9 +336,9 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
         size_t blockSize = myFiles[index].blockSize;    //change to unsigend int -> andere tests laufen
         size_t currentSize = myFiles[index].size;
         size_t newSize = currentSize + size;
-        size_t numBlocks = (newSize / blockSize) + 1l;  //change to unsigend int -> andere tests laufen
+        size_t numBlocks = (newSize / blockSize) + 1lu;  //change to unsigend int -> andere tests laufen
 
-        LOGF("blockSize: %lu | current size: %lu, new size: %lu, num blocks: %lu", blockSize, currentSize, newSize, numBlocks);
+        //LOGF("blockSize: %lu | current size: %lu, new size: %lu, num blocks: %lu", blockSize, currentSize, newSize, numBlocks);
 
         if (newSize > blockSize) {  //ist nicht mehr genug Platz im alten Block muss die Anzahl der Blöcke erweitert werden
             myFiles[index].blockSize = numBlocks * BLOCK_SIZE;
@@ -346,7 +351,9 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
 
         updateTime(index, 1);
 
-        RETURN(((int) size));   //cast to int????
+        LOGF("bufAfterWriting: %s | dataAfterWriting: %s | oldSize: %lu | newSize: %lu\n", buf, myFiles[index].data, currentSize, newSize);
+
+        RETURN(size);   //cast to int???
     }
 
     RETURN(index);
