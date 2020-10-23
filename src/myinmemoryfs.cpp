@@ -194,7 +194,7 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
     if(index >= 0) {
         statbuf->st_mode = myFiles[index].mode;
         statbuf->st_nlink = 1;
-        statbuf->st_size = myFiles[index].size;
+        statbuf->st_size = myFiles[index].dataSize;
 
         RETURN(ret);
     }
@@ -296,7 +296,7 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
     LOGF("DataBeforeReading: %s", myFiles[index].data);
     if(index >= 0) {
         char* selectedText = myFiles[index].data;
-        unsigned long begin = myFiles[index].size - offset;
+        unsigned long begin = myFiles[index].dataSize - offset;
 
         unsigned long toRead = size < begin ? size : begin;   //ist size < begin -> lese nur bestimmte anzahl bytes nach offset, size >= begin -> lese alles ab offset
 
@@ -334,7 +334,7 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
     if (index >= 0) {
 
         size_t blockSize = myFiles[index].blockSize;    //change to unsigend int -> andere tests laufen
-        size_t currentSize = myFiles[index].size;
+        size_t currentSize = myFiles[index].dataSize;
         size_t newSize = currentSize + size;
         size_t numBlocks = (newSize / blockSize) + 1lu;  //change to unsigend int -> andere tests laufen
 
@@ -347,7 +347,7 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, numBlocks));
         memcpy(myFiles[index].data + offset, buf , size);
 
-        myFiles[index].size = newSize;
+        myFiles[index].dataSize = newSize;
 
         updateTime(index, 1);
 
@@ -390,21 +390,21 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
 
     int index = searchForFile(path);
-    unsigned long oldSize = myFiles[index].size;
+    unsigned long oldSize = myFiles[index].dataSize;
 
     //LOGF("truncate closed %d | path: %s", index, path);
 
     if (index >= 0) {
-        //LOGF("wieso??!?!?!: %u | newsize: %u | oldsize: %u", myFiles[index].size, newSize, oldSize);
+        //LOGF("wieso??!?!?!: %u | newsize: %u | oldsize: %u", myFiles[index].dataSize, newSize, oldSize);
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
         if (newSize > oldSize) {
             //LOGF("wiesoweshalb??!?!?!: %u", myFiles[index].size);
             char buf[newSize - oldSize];
             memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
             memcpy(myFiles[index].data + oldSize, buf , newSize);
-            //LOGF("wiesoweshalbwarum??!?!?!: %u", myFiles[index].size);
+            //LOGF("wiesoweshalbwarum??!?!?!: %u", myFiles[index].dataSize);
         }
-        myFiles[index].size = newSize;
+        myFiles[index].dataSize = newSize;
         myFiles[index].blockSize = ((newSize / myFiles[index].blockSize) + 1)  * BLOCK_SIZE;
 
         updateTime(index, 1);
@@ -428,21 +428,21 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file
     LOGM();
 
     int index = searchForFile(path);
-    unsigned long oldSize = myFiles[index].size;
+    unsigned long oldSize = myFiles[index].dataSize;
 
     //LOGF("truncateopen %d | path: %s", index, path);
 
     if (index >= 0) {
-        //LOGF("wieso??!?!?!: %u | newsize: %u | oldsize: %u", myFiles[index].size, newSize, oldSize);
+        //LOGF("wieso??!?!?!: %u | newsize: %u | oldsize: %u", myFiles[index].dataSize, newSize, oldSize);
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
         if (newSize > oldSize) {
             //LOGF("wiesoweshalb??!?!?!: %u", myFiles[index].size);
             char buf[newSize - oldSize];
             memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
             memcpy(myFiles[index].data + oldSize, buf , newSize);
-            //LOGF("wiesoweshalbwarum??!?!?!: %u", myFiles[index].size);
+            //LOGF("wiesoweshalbwarum??!?!?!: %u", myFiles[index].dataSize);
         }
-        myFiles[index].size = newSize;
+        myFiles[index].dataSize = newSize;
         myFiles[index].blockSize = ((newSize / myFiles[index].blockSize) + 1)  * BLOCK_SIZE;
 
         updateTime(index, 1);
