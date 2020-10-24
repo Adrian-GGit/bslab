@@ -25,6 +25,7 @@ public:
 
     int count;
     int openFiles;
+    int index;
 
     // TODO: [PART 1] Add attributes of your file system here
     MyFsFileInfo myFiles[NUM_DIR_ENTRIES];
