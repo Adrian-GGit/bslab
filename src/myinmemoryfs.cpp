@@ -24,7 +24,6 @@
 
 #undef DEBUG
 
-// TODO: Comment lines to reduce debug messages
 #define DEBUG
 #define DEBUG_METHODS
 #define DEBUG_RETURN_VALUES
@@ -352,20 +351,18 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
 
     index = searchForFile(path);
-    size_t blockSize = myFiles[index].blockSize;
     size_t oldSize = myFiles[index].dataSize;
-    size_t numBlocks = newSize % blockSize == 0 ? newSize / blockSize : (newSize / blockSize) + 1lu;
+    size_t numBlocks = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : (newSize / BLOCK_SIZE) + 1;
 
     if (index >= 0) {
         myFiles[index].dataSize = newSize;
         myFiles[index].blockSize = numBlocks  * BLOCK_SIZE;
-
         if (newSize < oldSize) {
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
         } else{
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-            memset(myFiles[index].data + oldSize, 0, newSize);
+            memset(myFiles[index].data + oldSize, 0, newSize - oldSize);
         }
         updateTime(index, 1);
         RETURN(0);
@@ -388,20 +385,18 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file
     LOGM();
 
     index = searchForFile(path);
-    size_t blockSize = myFiles[index].blockSize;
     size_t oldSize = myFiles[index].dataSize;
-    size_t numBlocks = newSize % blockSize == 0 ? newSize / blockSize : (newSize / blockSize) + 1lu;
+    size_t numBlocks = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : (newSize / BLOCK_SIZE) + 1;
 
     if (index >= 0) {
         myFiles[index].dataSize = newSize;
         myFiles[index].blockSize = numBlocks  * BLOCK_SIZE;
-
         if (newSize < oldSize) {
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
         } else{
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-            memset(myFiles[index].data + oldSize, 0, newSize);
+            memset(myFiles[index].data + oldSize, 0, newSize - oldSize);
         }
         updateTime(index, 1);
         RETURN(0);
@@ -456,8 +451,6 @@ void* MyInMemoryFS::fuseInit(struct fuse_conn_info *conn) {
         LOG("Starting logging...\n");
 
         LOG("Using in-memory mode");
-
-        // TODO: [PART 1] Implement your initialization methods here
     }
 
     RETURN(0);
@@ -473,7 +466,6 @@ void MyInMemoryFS::fuseDestroy() {
 
 }
 
-// TODO: [PART 1] You may add your own additional methods here!
 void MyInMemoryFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     index = 0;
 
