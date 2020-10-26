@@ -291,8 +291,8 @@ int MyInMemoryFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
     index = searchForFile(path);
-    LOGF("dataSize: %lu", myFiles[index].dataSize);
-    LOGF("DataBeforeReading: %s", myFiles[index].data);
+    //LOGF("dataSize: %lu", myFiles[index].dataSize);
+    //LOGF("DataBeforeReading: %s", myFiles[index].data);
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
 
     if(index >= 0) {
@@ -328,28 +328,20 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    //LOGF("path: %s | writeSize: %lu | offset: %lu", path, size, offset);
-
     index = searchForFile(path);
     if (index >= 0) {
 
         size_t blockSize = myFiles[index].blockSize;
         size_t newSize = offset + size > myFiles[index].dataSize ? offset + size : myFiles[index].dataSize; //if new bytes are written the new size is offset + size; if only already written bytes are overwritten new size is old size
-        size_t numBlocks = newSize % blockSize == 0 ? newSize / blockSize : (newSize / blockSize) + 1lu;
+        size_t numBlocks = newSize % blockSize == 0 ? newSize / BLOCK_SIZE : (newSize / BLOCK_SIZE) + 1lu;
 
         if (newSize > blockSize) {  //ist nicht mehr genug Platz im alten Block muss die Anzahl der Blöcke erweitert werden
             myFiles[index].blockSize = numBlocks * BLOCK_SIZE;
         }
-        LOGF("dataSize: %lu | offset: %lu | bufSize: %lu | size: %lu\n", sizeof(myFiles[index].data), offset, sizeof(buf)/sizeof(buf[0]), size);
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-        LOGF("%s", "nach malloc");
         memcpy(myFiles[index].data + offset, buf , size);
-        LOGF("%s", "nach memcpy");
         myFiles[index].dataSize = newSize;
-        LOGF("%s", "nach datasize = newsize");
         updateTime(index, 1);
-
-        //LOGF("bufAfterWriting: %s | dataAfterWriting: %s | oldSize: %lu | newSize: %lu\n", buf, myFiles[index].data, myFiles[index].dataSize, newSize);
 
         RETURN(size);   //cast to int???
     }
