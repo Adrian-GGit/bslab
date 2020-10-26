@@ -330,18 +330,14 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    LOGF("path: %s | writeSize: %lu | calcSize: %lu", path, size, 20*1024*1024);
+    LOGF("path: %s | writeSize: %lu | offset: %lu", path, size, offset);
 
     index = searchForFile(path);
     if (index >= 0) {
 
-        size_t blockSize = myFiles[index].blockSize;    //change to unsigend int -> andere tests laufen
-        size_t currentSize = myFiles[index].dataSize;
-        size_t newSize = currentSize + size;
-        size_t numBlocks = newSize % blockSize == 0 ? newSize / blockSize : (newSize / blockSize) + 1lu;  //change to unsigend int -> andere tests laufen
-
-        //LOGF("blockSize: %lu | current size: %lu, new size: %lu, num blocks: %lu", blockSize, currentSize, newSize, numBlocks);
-        LOGF("dataSize: %lu", myFiles[index].dataSize);
+        size_t blockSize = myFiles[index].blockSize;
+        size_t newSize = offset + size > myFiles[index].dataSize ? offset + size : myFiles[index].dataSize; //if new bytes are written the new size is offset + size; if only already written bytes are overwritten new size is old size
+        size_t numBlocks = newSize % blockSize == 0 ? newSize / blockSize : (newSize / blockSize) + 1lu;
 
         if (newSize > blockSize) {  //ist nicht mehr genug Platz im alten Block muss die Anzahl der Blöcke erweitert werden
             myFiles[index].blockSize = numBlocks * BLOCK_SIZE;
@@ -354,7 +350,7 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
 
         updateTime(index, 1);
 
-        LOGF("bufAfterWriting: %s | dataAfterWriting: %s | oldSize: %lu | newSize: %lu\n", buf, myFiles[index].data, currentSize, newSize);
+        LOGF("bufAfterWriting: %s | dataAfterWriting: %s | oldSize: %lu | newSize: %lu\n", buf, myFiles[index].data, myFiles[index].dataSize, newSize);
 
         RETURN(size);   //cast to int???
     }
