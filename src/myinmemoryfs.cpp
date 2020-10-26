@@ -114,8 +114,7 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
     for (int i = 0; i < count; i++) {
         if (strcmp(path + 1, myFiles[i].fileName) == 0) {
             fillHole = true;
-            free(myFiles[i].data);        //macht aus irgendeinem Grund Probleme (mount ordner ist nicht mehr sichtbar)
-            //myFiles[i].size = 0;          //auf bsp folien drauf
+            free(myFiles[i].data);
         }
         if (fillHole) {   //delete element and fill hole
             myFiles[i] = myFiles[i + 1];
@@ -291,19 +290,13 @@ int MyInMemoryFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
     index = searchForFile(path);
-    //LOGF("dataSize: %lu", myFiles[index].dataSize);
-    //LOGF("DataBeforeReading: %s", myFiles[index].data);
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
 
     if(index >= 0) {
-        char* selectedText = myFiles[index].data;
-        unsigned long toRead = myFiles[index].dataSize - offset;
+        unsigned long toRead = size < myFiles[index].dataSize - offset ? size : myFiles[index].dataSize - offset;
 
-        memcpy( buf, selectedText + offset, toRead);
+        memcpy( buf, myFiles[index].data + offset, toRead);
         updateTime(index, 0);
-
-        //LOGF("bufAfterReading: %s | selectedText: %s | dataAfterReading: %s | readingSize: %lu | bufsize: %lu\n", buf, selectedText, myFiles[index].data, toRead, sizeof(buf)/sizeof(buf[0]));
-
 
         RETURN(toRead);
     }
@@ -343,12 +336,10 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
         myFiles[index].dataSize = newSize;
         updateTime(index, 1);
 
-        RETURN(size);   //cast to int???
+        RETURN(size);
     }
 
     RETURN(index);
-    //RETURN(size);
-
 }
 
 /// @brief Close a file.
@@ -387,23 +378,16 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
     size_t oldSize = myFiles[index].dataSize;
     size_t numBlocks = newSize % blockSize == 0 ? newSize / blockSize : (newSize / blockSize) + 1lu;
 
-    //LOGF("truncate closed %d | path: %s", index, path);
-
     if (index >= 0) {
         myFiles[index].dataSize = newSize;
         myFiles[index].blockSize = numBlocks  * BLOCK_SIZE;
 
         if (newSize < oldSize) {
-            //char buf(oldSize - newSize);
-            //memcpy(buf, myFiles[index].data, oldSize - newSize);
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-            //delete bytes which are too much
         } else{
-            //char buf[newSize - oldSize];
-            //memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-            memset(myFiles[index].data + oldSize, 0, newSize);  //evtl memcpy mit buf
+            memset(myFiles[index].data + oldSize, 0, newSize);
         }
 
         updateTime(index, 1);
@@ -431,23 +415,16 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file
     size_t oldSize = myFiles[index].dataSize;
     size_t numBlocks = newSize % blockSize == 0 ? newSize / blockSize : (newSize / blockSize) + 1lu;
 
-    //LOGF("truncate closed %d | path: %s", index, path);
-
     if (index >= 0) {
         myFiles[index].dataSize = newSize;
         myFiles[index].blockSize = numBlocks  * BLOCK_SIZE;
 
         if (newSize < oldSize) {
-            //char buf(oldSize - newSize);
-            //memcpy(buf, myFiles[index].data, oldSize - newSize);
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-            //delete bytes which are too much
         } else{
-            //char buf[newSize - oldSize];
-            //memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
             myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-            memset(myFiles[index].data + oldSize, 0, newSize);  //evtl memcpy mit buf
+            memset(myFiles[index].data + oldSize, 0, newSize);
         }
 
         updateTime(index, 1);
@@ -455,7 +432,6 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file
     }
 
     RETURN(index);
-    //dasselbe wie bei truncate oben? achtung dieses truncate wird bei offenen dateien angewendet!
 }
 
 /// @brief Read a directory.
