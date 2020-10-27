@@ -449,9 +449,7 @@ void* MyInMemoryFS::fuseInit(struct fuse_conn_info *conn) {
 /// This function is called when the file system is unmounted. You may add some cleanup code here.
 void MyInMemoryFS::fuseDestroy() {
     LOGM();
-
-    // TODO: [PART 1] Implement this!
-
+    unlinkAll();
 }
 
 void MyInMemoryFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
@@ -489,10 +487,14 @@ void MyInMemoryFS::updateTime(int index, int timeIndex) {
             }
         }
     }
-
-
 }
 
+void MyInMemoryFS::unlinkAll() {
+    for (int i = count; i >= 0; i--) {
+        free(myFiles[i].data);
+        myFiles[i] = myFiles[i + 1];
+    }
+}
 
 // DO NOT EDIT ANYTHING BELOW THIS LINE!!!
 
