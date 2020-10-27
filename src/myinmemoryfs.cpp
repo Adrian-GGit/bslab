@@ -77,7 +77,7 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         }
         MyFsFileInfo newData;
         copyFileNameIntoArray(path + 1, newData.fileName);
-        newData.data = static_cast<char*>(malloc(newData.blockSize));
+        newData.data = static_cast<char*>(malloc(newData.dataSize));
         newData.mode = mode;  //root: read,write,execute; group: read,execute; others:read,execute -> to give everyone all perms: 0777
         newData.a_time = time(NULL);    //current time
         newData.m_time = time(NULL);
@@ -168,10 +168,13 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
     //		            refers to.
 
-    statbuf->st_uid = getuid();
-    statbuf->st_gid = getgid();
-    statbuf->st_atime = time(NULL);
-    statbuf->st_mtime = time(NULL);
+    index = searchForFile(path);
+
+    statbuf->st_uid = myFiles[index].userId;
+    statbuf->st_gid = myFiles[index].groupId;
+    updateTime(index, 1);
+    statbuf->st_atime = myFiles[index].a_time;
+    statbuf->st_mtime = myFiles[index].m_time;
 
     int ret= 0;
 
@@ -182,7 +185,6 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
         RETURN(ret);
     }
 
-    index = searchForFile(path);
     if(index >= 0) {
         statbuf->st_mode = myFiles[index].mode;
         statbuf->st_nlink = 1;
@@ -307,9 +309,7 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
     index = searchForFile(path);
     if (index >= 0) {
         size_t newSize = offset + size > myFiles[index].dataSize ? offset + size : myFiles[index].dataSize; //if new bytes are written the new size is offset + size; if only already written bytes are overwritten new size is old size
-        size_t numBlocks = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : (newSize / BLOCK_SIZE) + 1;
-        myFiles[index].blockSize = numBlocks * BLOCK_SIZE;      //blockSize will be even or greater than before
-        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
         memcpy(myFiles[index].data + offset, buf , size);
         myFiles[index].dataSize = newSize;
         updateTime(index, 1);
@@ -352,18 +352,12 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
 
     index = searchForFile(path);
     size_t oldSize = myFiles[index].dataSize;
-    size_t numBlocks = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : (newSize / BLOCK_SIZE) + 1;
 
     if (index >= 0) {
         myFiles[index].dataSize = newSize;
-        myFiles[index].blockSize = numBlocks  * BLOCK_SIZE;
-        if (newSize < oldSize) {
-            myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
-            myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-        } else{
-            myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
+        if (newSize > oldSize)
             memset(myFiles[index].data + oldSize, 0, newSize - oldSize);
-        }
         updateTime(index, 1);
         RETURN(0);
     }
@@ -386,18 +380,12 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file
 
     index = searchForFile(path);
     size_t oldSize = myFiles[index].dataSize;
-    size_t numBlocks = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : (newSize / BLOCK_SIZE) + 1;
 
     if (index >= 0) {
         myFiles[index].dataSize = newSize;
-        myFiles[index].blockSize = numBlocks  * BLOCK_SIZE;
-        if (newSize < oldSize) {
-            myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
-            myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
-        } else{
-            myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, myFiles[index].blockSize));
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
+        if (newSize > oldSize)
             memset(myFiles[index].data + oldSize, 0, newSize - oldSize);
-        }
         updateTime(index, 1);
         RETURN(0);
     }
