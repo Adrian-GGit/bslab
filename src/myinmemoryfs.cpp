@@ -313,7 +313,6 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
         memcpy(myFiles[index].data + offset, buf , size);
         myFiles[index].dataSize = newSize;
         updateTime(index, 1);
-
         RETURN(size);
     }
 
