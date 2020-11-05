@@ -75,6 +75,9 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         if(index >= 0) {
             RETURN(-EEXIST)
         }
+        if (strlen(path + 1) > NAME_LENGTH) {
+            RETURN(-ENAMETOOLONG)
+        }
         MyFsFileInfo newData;
         copyFileNameIntoArray(path + 1, newData.fileName);
         newData.data = static_cast<char*>(malloc(newData.dataSize));
