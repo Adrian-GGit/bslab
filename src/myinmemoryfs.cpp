@@ -24,7 +24,6 @@
 
 #undef DEBUG
 
-// TODO: Comment lines to reduce debug messages
 #define DEBUG
 #define DEBUG_METHODS
 #define DEBUG_RETURN_VALUES
@@ -45,6 +44,7 @@ MyInMemoryFS::MyInMemoryFS() : MyFS() {
 
     count = 0;
     openFiles = 0;
+    index = -1;
 
 }
 
@@ -71,28 +71,24 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
     LOGF("path: %s | count: %d | numdirs: %d\n", path, count, NUM_DIR_ENTRIES);
 
     if (count < NUM_DIR_ENTRIES) {
-        int index = searchForFile(path);
+        index = searchForFile(path);
         if(index >= 0) {
             RETURN(-EEXIST)
         }
-
+        if (strlen(path + 1) > NAME_LENGTH) {
+            RETURN(-ENAMETOOLONG)
+        }
         MyFsFileInfo newData;
         copyFileNameIntoArray(path + 1, newData.fileName);
-
-        newData.data = static_cast<char*>(malloc(newData.blockSize));
-
+        newData.data = static_cast<char*>(malloc(newData.dataSize));
         newData.mode = mode;  //root: read,write,execute; group: read,execute; others:read,execute -> to give everyone all perms: 0777
-
         newData.a_time = time(NULL);    //current time
         newData.m_time = time(NULL);
         newData.c_time = time(NULL);
-
         newData.userId = getuid();
         newData.groupId = getgid();
-
         myFiles[count] = newData;
         count += 1;
-
     } else{
         RETURN(-ENOMEM);
     }
@@ -113,8 +109,7 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
     for (int i = 0; i < count; i++) {
         if (strcmp(path + 1, myFiles[i].fileName) == 0) {
             fillHole = true;
-            free(myFiles[i].data);        //macht aus irgendeinem Grund Probleme (mount ordner ist nicht mehr sichtbar)
-            //myFiles[i].size = 0;          //auf bsp folien drauf
+            free(myFiles[i].data);
         }
         if (fillHole) {   //delete element and fill hole
             myFiles[i] = myFiles[i + 1];
@@ -141,7 +136,7 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
 int MyInMemoryFS::fuseRename(const char *path, const char *newpath) {
     LOGM();
 
-    int index = searchForFile(path);
+    index = searchForFile(path);
     if(index >= 0) {
         copyFileNameIntoArray(newpath + 1, myFiles[index].fileName);
         updateTime(index, 1);
@@ -176,10 +171,13 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
     //		            refers to.
 
-    statbuf->st_uid = getuid();
-    statbuf->st_gid = getgid();
-    statbuf->st_atime = time(NULL);
-    statbuf->st_mtime = time(NULL);
+    index = searchForFile(path);
+
+    statbuf->st_uid = myFiles[index].userId;
+    statbuf->st_gid = myFiles[index].groupId;
+    updateTime(index, 1);
+    statbuf->st_atime = myFiles[index].a_time;
+    statbuf->st_mtime = myFiles[index].m_time;
 
     int ret= 0;
 
@@ -190,7 +188,6 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
         RETURN(ret);
     }
 
-    int index = searchForFile(path);
     if(index >= 0) {
         statbuf->st_mode = myFiles[index].mode;
         statbuf->st_nlink = 1;
@@ -212,7 +209,7 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
 int MyInMemoryFS::fuseChmod(const char *path, mode_t mode) {
     LOGM();
 
-    int index = searchForFile(path);
+    index = searchForFile(path);
     if(index >= 0) {
         myFiles[index].mode = mode;
         updateTime(index, 1);
@@ -232,7 +229,7 @@ int MyInMemoryFS::fuseChmod(const char *path, mode_t mode) {
 int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
     LOGM();
 
-    int index = searchForFile(path);
+    index = searchForFile(path);
     if(index >= 0) {
         myFiles[index].userId = uid;
         myFiles[index].groupId = gid;
@@ -253,21 +250,14 @@ int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
 int MyInMemoryFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    if (openFiles > NUM_OPEN_FILES) {
+    index = searchForFile(path);
+    if (openFiles > NUM_OPEN_FILES || index < 0) {
         RETURN(-ENOENT);
     }
 
-    int index = searchForFile(path);
-    if(index >= 0) {
-        openFiles++;
-        updateTime(index, 0);
-
-        LOGF("data: %s\n", myFiles[index].data);
-
-        RETURN(0);
-    }
-
-    RETURN(-ENOENT);
+    openFiles++;
+    updateTime(index, 0);
+    RETURN(0);
 }
 
 /// @brief Read from a file.
@@ -291,20 +281,11 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
     LOGM();
 
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
-
-    int index = searchForFile(path);
-    LOGF("DataBeforeReading: %s", myFiles[index].data);
+    index = searchForFile(path);
     if(index >= 0) {
-        char* selectedText = myFiles[index].data;
-        unsigned long begin = myFiles[index].dataSize - offset;
-
-        unsigned long toRead = size < begin ? size : begin;   //ist size < begin -> lese nur bestimmte anzahl bytes nach offset, size >= begin -> lese alles ab offset
-
-        memcpy( buf, selectedText + offset, toRead);
+        unsigned long toRead = size < myFiles[index].dataSize - offset ? size : myFiles[index].dataSize - offset;
+        memcpy( buf, myFiles[index].data + offset, toRead);
         updateTime(index, 0);
-
-        LOGF("bufAfterReading: %s | selectedText: %s | dataAfterReading: %s | readingSize: %lu\n", buf, selectedText, myFiles[index].data, toRead);
-
         RETURN(toRead);
     }
     return index;
@@ -328,32 +309,14 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
 int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    //LOGF("path: %s | writeSize: %lu | calcSize: %lu", path, size, 20*1024*1024);
-
-    int index = searchForFile(path);
+    index = searchForFile(path);
     if (index >= 0) {
-
-        size_t blockSize = myFiles[index].blockSize;    //change to unsigend int -> andere tests laufen
-        size_t currentSize = myFiles[index].dataSize;
-        size_t newSize = currentSize + size;
-        size_t numBlocks = (newSize / blockSize) + 1lu;  //change to unsigend int -> andere tests laufen
-
-        //LOGF("blockSize: %lu | current size: %lu, new size: %lu, num blocks: %lu", blockSize, currentSize, newSize, numBlocks);
-
-        if (newSize > blockSize) {  //ist nicht mehr genug Platz im alten Block muss die Anzahl der Blöcke erweitert werden
-            myFiles[index].blockSize = numBlocks * BLOCK_SIZE;
-        }
-
-        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, numBlocks));
+        size_t newSize = offset + size > myFiles[index].dataSize ? offset + size : myFiles[index].dataSize; //if new bytes are written the new size is offset + size; if only already written bytes are overwritten new size is old size
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
         memcpy(myFiles[index].data + offset, buf , size);
-
         myFiles[index].dataSize = newSize;
-
         updateTime(index, 1);
-
-        LOGF("bufAfterWriting: %s | dataAfterWriting: %s | oldSize: %lu | newSize: %lu\n", buf, myFiles[index].data, currentSize, newSize);
-
-        RETURN(size);   //cast to int???
+        RETURN(size);
     }
 
     RETURN(index);
@@ -368,14 +331,14 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
 int MyInMemoryFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    int index = searchForFile(path);
+    index = searchForFile(path);
     if (index >= 0) {
         openFiles--;
         updateTime(index, 0);
         RETURN(0);
     }
 
-    RETURN(-ENOENT);
+    RETURN(index);
 }
 
 /// @brief Truncate a file.
@@ -389,29 +352,19 @@ int MyInMemoryFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo)
 int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
 
-    int index = searchForFile(path);
-    unsigned long oldSize = myFiles[index].dataSize;
-
-    //LOGF("truncate closed %d | path: %s", index, path);
+    index = searchForFile(path);
+    size_t oldSize = myFiles[index].dataSize;
 
     if (index >= 0) {
-        //LOGF("wieso??!?!?!: %u | newsize: %u | oldsize: %u", myFiles[index].dataSize, newSize, oldSize);
-        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
-        if (newSize > oldSize) {
-            //LOGF("wiesoweshalb??!?!?!: %u", myFiles[index].size);
-            char buf[newSize - oldSize];
-            memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
-            memcpy(myFiles[index].data + oldSize, buf , newSize);
-            //LOGF("wiesoweshalbwarum??!?!?!: %u", myFiles[index].dataSize);
-        }
         myFiles[index].dataSize = newSize;
-        myFiles[index].blockSize = ((newSize / myFiles[index].blockSize) + 1)  * BLOCK_SIZE;
-
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
+        if (newSize > oldSize)
+            memset(myFiles[index].data + oldSize, 0, newSize - oldSize);
         updateTime(index, 1);
         RETURN(0);
-    } else{
-        RETURN(index);
     }
+
+    RETURN(index);
 }
 
 /// @brief Truncate a file.
@@ -427,30 +380,19 @@ int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize) {
 int MyInMemoryFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    int index = searchForFile(path);
-    unsigned long oldSize = myFiles[index].dataSize;
-
-    //LOGF("truncateopen %d | path: %s", index, path);
+    index = searchForFile(path);
+    size_t oldSize = myFiles[index].dataSize;
 
     if (index >= 0) {
-        //LOGF("wieso??!?!?!: %u | newsize: %u | oldsize: %u", myFiles[index].dataSize, newSize, oldSize);
-        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
-        if (newSize > oldSize) {
-            //LOGF("wiesoweshalb??!?!?!: %u", myFiles[index].size);
-            char buf[newSize - oldSize];
-            memset(buf, '\0', newSize - oldSize);   //fülle buffer auf
-            memcpy(myFiles[index].data + oldSize, buf , newSize);
-            //LOGF("wiesoweshalbwarum??!?!?!: %u", myFiles[index].dataSize);
-        }
         myFiles[index].dataSize = newSize;
-        myFiles[index].blockSize = ((newSize / myFiles[index].blockSize) + 1)  * BLOCK_SIZE;
-
+        myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
+        if (newSize > oldSize)
+            memset(myFiles[index].data + oldSize, 0, newSize - oldSize);
         updateTime(index, 1);
         RETURN(0);
-    } else{
-        RETURN(index);
     }
-    //dasselbe wie bei truncate oben? achtung dieses truncate wird bei offenen dateien angewendet!
+
+    RETURN(index);
 }
 
 /// @brief Read a directory.
@@ -499,8 +441,6 @@ void* MyInMemoryFS::fuseInit(struct fuse_conn_info *conn) {
         LOG("Starting logging...\n");
 
         LOG("Using in-memory mode");
-
-        // TODO: [PART 1] Implement your initialization methods here
     }
 
     RETURN(0);
@@ -511,14 +451,11 @@ void* MyInMemoryFS::fuseInit(struct fuse_conn_info *conn) {
 /// This function is called when the file system is unmounted. You may add some cleanup code here.
 void MyInMemoryFS::fuseDestroy() {
     LOGM();
-
-    // TODO: [PART 1] Implement this!
-
+    unlinkAll();
 }
 
-// TODO: [PART 1] You may add your own additional methods here!
 void MyInMemoryFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
-    int index = 0;
+    index = 0;
 
     while(*fileName != '\0') {
         fileArray[index] = *fileName;
@@ -552,10 +489,14 @@ void MyInMemoryFS::updateTime(int index, int timeIndex) {
             }
         }
     }
-
-
 }
 
+void MyInMemoryFS::unlinkAll() {
+    for (int i = count; i >= 0; i--) {
+        free(myFiles[i].data);
+        myFiles[i] = myFiles[i + 1];
+    }
+}
 
 // DO NOT EDIT ANYTHING BELOW THIS LINE!!!
 

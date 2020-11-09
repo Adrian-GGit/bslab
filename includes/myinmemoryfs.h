@@ -25,6 +25,7 @@ public:
 
     int count;
     int openFiles;
+    int index;
 
     // TODO: [PART 1] Add attributes of your file system here
     MyFsFileInfo myFiles[NUM_DIR_ENTRIES];
@@ -57,6 +58,7 @@ public:
     void copyFileNameIntoArray(const char *fileName, char pInfo[64]);
     int searchForFile(const char *string);
     void updateTime(int index, int time);
+    void unlinkAll();
 };
 
 #endif //MYFS_MYINMEMORYFS_H

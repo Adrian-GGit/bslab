@@ -18,8 +18,7 @@
 
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
-    size_t blockSize = BLOCK_SIZE;  //vielfaches von BLOCK_SIZE
-    size_t dataSize = 0;            //evtl 0 weg
+    size_t dataSize = 0;
     unsigned int userId;
     unsigned int groupId;
 
@@ -29,7 +28,7 @@ struct MyFsFileInfo {
     time_t m_time;
     time_t c_time;
 
-    char* data = "";        //evtl "" weg
+    char* data;
 };
 
 #endif /* myfs_structs_h */
