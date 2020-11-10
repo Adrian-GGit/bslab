@@ -213,9 +213,10 @@ int MyInMemoryFS::fuseChmod(const char *path, mode_t mode) {
     if(index >= 0) {
         myFiles[index].mode = mode;
         updateTime(index, 1);
+        RETURN(0);
     }
 
-    RETURN(0);
+    RETURN(index);
 }
 
 /// @brief Change the owner of a file.
@@ -234,6 +235,7 @@ int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
         myFiles[index].userId = uid;
         myFiles[index].groupId = gid;
         updateTime(index, 1);
+        RETURN(0);
     }
 
     RETURN(index);
@@ -283,7 +285,7 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
     index = searchForFile(path);
     if(index >= 0) {
-        unsigned long toRead = size < myFiles[index].dataSize - offset ? size : myFiles[index].dataSize - offset;
+        unsigned long toRead = size < myFiles[index].dataSize - offset ? size : myFiles[index].dataSize - offset;   //if you want to read in middle of the file or if you want
         memcpy( buf, myFiles[index].data + offset, toRead);
         updateTime(index, 0);
         RETURN(toRead);
@@ -318,7 +320,6 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
         updateTime(index, 1);
         RETURN(size);
     }
-
     RETURN(index);
 }
 
