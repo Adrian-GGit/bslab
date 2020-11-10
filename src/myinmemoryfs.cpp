@@ -251,7 +251,7 @@ int MyInMemoryFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
     index = searchForFile(path);
-    if (openFiles > NUM_OPEN_FILES || index < 0) {
+    if (openFiles >= NUM_OPEN_FILES || index < 0) {
         RETURN(-ENOENT);
     }
 
