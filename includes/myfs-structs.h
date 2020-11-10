@@ -14,11 +14,21 @@
 #define NUM_DIR_ENTRIES 64
 #define NUM_OPEN_FILES 64
 
+#define NUM_BLOCKS 1096
+
+/*#define BLOCKSIZE_SUPERBLOCK 512
+#define BLOCKSIZE_DMAP 4608
+#define BLOCKSIZE_FAT 512
+#define BLOCKSIZE_ROOT 19968*/
+
+
 // TODO: Add structures of your file system here
 
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
-    size_t dataSize = 0;
+    size_t dataSize = 0;            //beschreibt bei ondisk wo Bytes im Block aufhören
+    unsigned int start = 0;         //beschreibt bei ondisk wo Bytes im Block beginnen
+    unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
     unsigned int userId;
     unsigned int groupId;
 
@@ -28,7 +38,27 @@ struct MyFsFileInfo {
     time_t m_time;
     time_t c_time;
 
-    char* data;
+    char* data;                 //bleibt bei ondisk immer null
+};
+
+struct mySuperblock {
+    unsigned int mySuperblockindex;     //start von Superblock
+    unsigned int myDMAPindex;           //start von DMAP
+    unsigned int myFATindex;           //start von FAT
+    unsigned int myRootindex;          //start von Root
+    unsigned int myDATAindex;          //start von Data
+};
+
+struct myDMAP {
+    unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
+};
+
+struct myFAT {
+    unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
+};
+
+struct myRoot {
+    MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
 };
 
 #endif /* myfs_structs_h */

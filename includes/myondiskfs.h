@@ -42,7 +42,8 @@ public:
     virtual void fuseDestroy();
 
     // TODO: Add methods of your file system here
-
+    void buildStructure();
+    void writeOnDisk(unsigned int Block_Number, char* buf);
 };
 
 #endif //MYFS_MYONDISKFS_H

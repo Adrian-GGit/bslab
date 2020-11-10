@@ -26,6 +26,11 @@ public:
     static MyFS *Instance();
     
     // TODO: [PART 2] You may add attributes of your file system here
+
+    mySuperblock superBlock;
+    myDMAP DMAP;
+    myFAT FAT;
+    myRoot Root;
     
     MyFS();
     ~MyFS();

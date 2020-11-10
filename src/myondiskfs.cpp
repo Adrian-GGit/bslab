@@ -30,7 +30,15 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
     // create a block device object
     this->blockDevice= new BlockDevice(BLOCK_SIZE);
 
-    // TODO: [PART 2] Add your constructor code here
+    //alle Blöcke sind noch frei
+    for (int i = 0; i < NUM_BLOCKS; i++) {
+        DMAP.freeBlocks[i] = '0';
+    }
+
+    this->blockDevice->create("/home/user/bslab/container.bin");
+
+    //baue Struktur auf:
+    buildStructure();
 
 }
 
@@ -324,6 +332,44 @@ void MyOnDiskFS::fuseDestroy() {
 }
 
 // TODO: [PART 2] You may add your own additional methods here!
+
+void buildStructure() {
+    unsigned int numBlocks = sizeof(mySuperblock) % BLOCK_SIZE ? sizeof(mySuperblock) / BLOCK_SIZE : sizeof(mySuperblock) % BLOCK_SIZE + 1;
+/*unsigned int blocksize_superblock = 1;
+    char puffer[blocksize_superblock];
+    LOGF("sizeSuperblock: %d", sizeof(mySuperblock));
+    memcpy(puffer, &superBlock, sizeof(mySuperblock));
+    superBlock.mySuperblockindex = 0;
+    blockDevice->write(superBlock.mySuperblockindex, puffer);
+
+    unsigned int blocksize_dmap = ;
+    char puffer2[blocksize_dmap];
+    LOGF("sizeDMAP: %d", sizeof(myDMAP));
+    memcpy(puffer2, &DMAP, sizeof(myDMAP));
+    superBlock.myDMAPindex = blocksize_dmap / BLOCK_SIZE;
+    blockDevice->write(superBlock.myDMAPindex, puffer2);
+
+    unsigned int blocksize_fat = ;
+    char puffer3[blocksize_fat];
+    LOGF("sizeFAT: %d", sizeof(myFAT));
+    memcpy(puffer3, &FAT, sizeof(myFAT));
+    superBlock.myDMAPindex = blocksize_fat / BLOCK_SIZE;
+    blockDevice->write(superBlock.myFATindex, puffer3);
+
+    unsigned int blocksize_root = ;
+    char puffer4[blocksize_root];
+    LOGF("sizeRoot: %d", sizeof(myRoot));
+    memcpy(puffer4, &Root, sizeof(myRoot));
+    superBlock.myRootindex = blocksize_root / BLOCK_SIZE;
+    blockDevice->write(superBlock.myRootindex, puffer4);
+
+    superBlock.myDATAindex = (superBlock.myRootindex + sizeof(myRoot));*/
+}
+
+void writeOnDisk(unsigned int Block_Number, char* buf_all) {
+
+}
+
 
 // DO NOT EDIT ANYTHING BELOW THIS LINE!!!
 
