@@ -35,8 +35,6 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
         dmap.freeBlocks[i] = '0';
     }
 
-    buildStructure();
-
 }
 
 /// @brief Destructor of the on-disk file system class.
@@ -391,6 +389,8 @@ void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned in
 }
 
 void MyOnDiskFS::readContainer() {
+
+    //TODO
 
 }
 
