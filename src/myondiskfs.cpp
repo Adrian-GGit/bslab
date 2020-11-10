@@ -35,11 +35,6 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
         DMAP.freeBlocks[i] = '0';
     }
 
-    this->blockDevice->create("/home/user/bslab/container.bin");
-
-    //baue Struktur auf:
-    buildStructure();
-
 }
 
 /// @brief Destructor of the on-disk file system class.
@@ -300,6 +295,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
             LOG("Container file does exist, reading");
 
             // TODO: [PART 2] Read existing structures form file
+            readContainer();
 
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
@@ -309,6 +305,11 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
             if (ret >= 0) {
 
                 // TODO: [PART 2] Create empty structures in file
+
+                this->blockDevice->create("/home/user/bslab/container.bin");
+
+                //baue Struktur auf:
+                buildStructure();
 
             }
         }
@@ -333,9 +334,15 @@ void MyOnDiskFS::fuseDestroy() {
 
 // TODO: [PART 2] You may add your own additional methods here!
 
-void buildStructure() {
-    unsigned int numBlocks = sizeof(mySuperblock) % BLOCK_SIZE ? sizeof(mySuperblock) / BLOCK_SIZE : sizeof(mySuperblock) % BLOCK_SIZE + 1;
-/*unsigned int blocksize_superblock = 1;
+void MyOnDiskFS::buildStructure() {
+    unsigned int numBlocks = sizeof(mySuperblock) % BLOCK_SIZE == 0 ? sizeof(mySuperblock) / BLOCK_SIZE : (sizeof(mySuperblock) / BLOCK_SIZE) + 1;
+    unsigned int blockSize = numBlocks * BLOCK_SIZE;
+
+    char puffer[blockSize];
+    memcpy(puffer, &superBlock, sizeof(superBlock));
+    superBlock.mySuperblockindex = 0;
+    writeOnDisk(superBlock.mySuperblockindex, puffer, numBlocks);
+    /*unsigned int blocksize_superblock = 1;
     char puffer[blocksize_superblock];
     LOGF("sizeSuperblock: %d", sizeof(mySuperblock));
     memcpy(puffer, &superBlock, sizeof(mySuperblock));
@@ -366,7 +373,21 @@ void buildStructure() {
     superBlock.myDATAindex = (superBlock.myRootindex + sizeof(myRoot));*/
 }
 
-void writeOnDisk(unsigned int Block_Number, char* buf_all) {
+//write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
+void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks) {
+    char buf[BLOCK_SIZE];
+    size_t size;
+
+    for (int i = 0; i < numBlocks; i++) {
+        size = i == numBlocks - 1 ? (sizeof(pufAll) - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE;
+        memcpy(buf, pufAll, size);
+        blockDevice->write(blockNumber, buf);
+        blockNumber++;
+        pufAll += BLOCK_SIZE;   //evtl verschiebt sich der Pointer NICHT um 512 Bytes - testen
+    }
+}
+
+void MyOnDiskFS::readContainer() {
 
 }
 
