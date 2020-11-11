@@ -43,7 +43,7 @@ public:
 
     // TODO: Add methods of your file system here
     void buildStructure();
-    void writeOnDisk(unsigned int blockNumber, char* buf, unsigned int numBlocks);
+    void writeOnDisk(unsigned int blockNumber, char* buf, unsigned int numBlocks, size_t size);
     void readContainer();
 };
 

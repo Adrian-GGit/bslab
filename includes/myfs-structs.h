@@ -14,7 +14,7 @@
 #define NUM_DIR_ENTRIES 64
 #define NUM_OPEN_FILES 64
 
-#define NUM_BLOCKS 1096
+#define NUM_BLOCKS 100000       //TODO prüfe ob 100k reichen für 20MB data + SDFR Blöcke (Superblock, DMAP, FAT, Root)
 
 /*#define BLOCKSIZE_SUPERBLOCK 512
 #define BLOCKSIZE_DMAP 4608

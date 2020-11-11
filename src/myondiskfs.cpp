@@ -340,11 +340,11 @@ void MyOnDiskFS::buildStructure() {
 
     superBlock.mySuperblockindex = 0;
     numBlocks = sizeof(mySuperblock) % BLOCK_SIZE == 0 ? sizeof(mySuperblock) / BLOCK_SIZE : (sizeof(mySuperblock) / BLOCK_SIZE) + 1;
-    LOGF("superBlockindex: %d", superBlock.mySuperblockindex);
+    LOGF("superBlockindex: %d | sizeof: %d", superBlock.mySuperblockindex, sizeof(mySuperblock));
     blockSize = numBlocks * BLOCK_SIZE;
     char puffer[blockSize];
     memcpy(puffer, &superBlock, sizeof(superBlock));
-    writeOnDisk(superBlock.mySuperblockindex, puffer, numBlocks);
+    writeOnDisk(superBlock.mySuperblockindex, puffer, numBlocks, sizeof(mySuperblock));
 
     superBlock.myDMAPindex = superBlock.mySuperblockindex + numBlocks;
     numBlocks = sizeof(myDMAP) % BLOCK_SIZE == 0 ? sizeof(myDMAP) / BLOCK_SIZE : (sizeof(myDMAP) / BLOCK_SIZE) + 1;
@@ -352,7 +352,7 @@ void MyOnDiskFS::buildStructure() {
     blockSize = numBlocks * BLOCK_SIZE;
     char puffer2[blockSize];
     memcpy(puffer2, &dmap, sizeof(dmap));
-    writeOnDisk(superBlock.mySuperblockindex, puffer2, numBlocks);
+    writeOnDisk(superBlock.mySuperblockindex, puffer2, numBlocks, sizeof(myDMAP));
 
     superBlock.myFATindex = superBlock.myDMAPindex + numBlocks;
     numBlocks = sizeof(myFAT) % BLOCK_SIZE == 0 ? sizeof(myFAT) / BLOCK_SIZE : (sizeof(myFAT) / BLOCK_SIZE) + 1;
@@ -360,7 +360,7 @@ void MyOnDiskFS::buildStructure() {
     blockSize = numBlocks * BLOCK_SIZE;
     char puffer3[blockSize];
     memcpy(puffer3, &fat, sizeof(fat));
-    writeOnDisk(superBlock.mySuperblockindex, puffer3, numBlocks);
+    writeOnDisk(superBlock.mySuperblockindex, puffer3, numBlocks, sizeof(myFAT));
 
     superBlock.myRootindex = superBlock.myFATindex + numBlocks;
     numBlocks = sizeof(myRoot) % BLOCK_SIZE == 0 ? sizeof(myRoot) / BLOCK_SIZE : (sizeof(myRoot) / BLOCK_SIZE) + 1;
@@ -368,20 +368,20 @@ void MyOnDiskFS::buildStructure() {
     blockSize = numBlocks * BLOCK_SIZE;
     char puffer4[blockSize];
     memcpy(puffer4, &root, sizeof(superBlock));
-    writeOnDisk(superBlock.mySuperblockindex, puffer4, numBlocks);
+    writeOnDisk(superBlock.mySuperblockindex, puffer4, numBlocks, sizeof(myRoot));
 
     superBlock.myDATAindex = superBlock.myRootindex + numBlocks;
     LOGF("dataindex: %d", superBlock.myDATAindex);
 }
 
 //write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
-void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks) {
+void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks, size_t size) {
     char buf[BLOCK_SIZE];
-    size_t size;
+    size_t currentSize;
 
     for (int i = 0; i < numBlocks; i++) {
-        size = i == numBlocks - 1 ? (sizeof(pufAll) - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE;
-        memcpy(buf, pufAll, size);
+        currentSize = i == numBlocks - 1 ? (size - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE;
+        memcpy(buf, pufAll, currentSize);
         blockDevice->write(blockNumber, buf);
         blockNumber++;
         pufAll += BLOCK_SIZE;   //evtl verschiebt sich der Pointer NICHT um 512 Bytes - testen
