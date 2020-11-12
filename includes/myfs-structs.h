@@ -43,79 +43,24 @@ struct MyFsFileInfo {
     char* data;                 //bleibt bei ondisk immer null
 };
 
-struct SDFR {
-
-    struct mySuperblock {
-        unsigned int mySuperblockindex;     //start von Superblock
-        unsigned int myDMAPindex;           //start von DMAP
-        unsigned int myFATindex;           //start von FAT
-        unsigned int myRootindex;          //start von Root
-        unsigned int myDATAindex;          //start von Data
-    };
-    mySuperblock superBlock;
-
-    struct myDMAP {
-        unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
-    };
-    myDMAP dmap;
-
-    struct myFAT {
-        unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
-    };
-    myFAT fat;
-
-    struct myRoot {
-        MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
-    };
-    myRoot root;
+struct mySuperblock {
+    unsigned int mySuperblockindex;     //start von Superblock
+    unsigned int myDMAPindex;           //start von DMAP
+    unsigned int myFATindex;           //start von FAT
+    unsigned int myRootindex;          //start von Root
+    unsigned int myDATAindex;          //start von Data
 };
 
-
-/*struct SDFR {
-    mySuperblock superBlock;
-    myDMAP dmap;
-    myFAT fat;
-    myRoot root;
+struct myDMAP {
+    unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
 };
 
-class SDFR {
-    struct str{};
+struct myFAT {
+    unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
 };
 
-class mySuperblock : public SDFR {
-public:
-    struct str {
-        unsigned int mySuperblockindex;     //start von Superblock
-        unsigned int myDMAPindex;           //start von DMAP
-        unsigned int myFATindex;           //start von FAT
-        unsigned int myRootindex;          //start von Root
-        unsigned int myDATAindex;          //start von Data
-    };
-
+struct myRoot {
+    MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
 };
-
-class myDMAP : public SDFR {
-public:
-    struct str {
-        unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
-    };
-
-};
-
-class myFAT : public SDFR {
-public:
-    struct str {
-        unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
-    };
-
-};
-
-class myRoot : public SDFR {
-public:
-    struct str {
-        MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
-    };
-
-};*/
 
 #endif /* myfs_structs_h */
