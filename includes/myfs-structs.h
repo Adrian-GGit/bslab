@@ -31,6 +31,8 @@ struct MyFsFileInfo {
     size_t dataSize = 0;            //beschreibt bei ondisk wo Bytes im Block aufhören
     unsigned int start = 0;         //beschreibt bei ondisk wo Bytes im Block beginnen
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
+    unsigned int end;               //beschreibt bei welchem Byte im letzten Block Datei endet
+    unsigned int endBlock;          //beschreibt bei welchem Block Datei endet
     unsigned int userId;
     unsigned int groupId;
 
@@ -43,24 +45,43 @@ struct MyFsFileInfo {
     char* data;                 //bleibt bei ondisk immer null
 };
 
-struct mySuperblock {
-    unsigned int mySuperblockindex;     //start von Superblock
-    unsigned int myDMAPindex;           //start von DMAP
-    unsigned int myFATindex;           //start von FAT
-    unsigned int myRootindex;          //start von Root
-    unsigned int myDATAindex;          //start von Data
-};
+struct SDFR {
+    struct mySuperblock {
+        unsigned int mySuperblockindex;     //start von Superblock
+        unsigned int myDMAPindex;           //start von DMAP
+        unsigned int myFATindex;           //start von FAT
+        unsigned int myRootindex;          //start von Root
+        unsigned int myDATAindex;          //start von Data
+    };
+    mySuperblock superBlock;
 
-struct myDMAP {
-    unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
-};
+    struct myDMAP {
+        unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
+    };
+    myDMAP dmap;
 
-struct myFAT {
-    unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
-};
+    struct myFAT {
+        unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
+    };
+    myFAT fat;
 
-struct myRoot {
-    MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
+    struct myRoot {
+        MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
+    };
+    myRoot root;
+
+    inline size_t operator << (int i) {
+        switch (i) {
+            case 0:
+                return sizeof(mySuperblock);
+            case 1:
+                return sizeof(myDMAP);
+            case 2:
+                return sizeof(myFAT);
+            case 3:
+                return sizeof(myRoot);
+        }
+    }
 };
 
 #endif /* myfs_structs_h */
