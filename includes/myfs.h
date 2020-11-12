@@ -27,7 +27,6 @@ public:
     
     // TODO: [PART 2] You may add attributes of your file system here
 
-    unsigned int num = 4;
     mySuperblock superBlock;
     myDMAP dmap;
     myFAT fat;

@@ -16,6 +16,8 @@
 
 #define NUM_BLOCKS 100000       //TODO prüfe ob 100k reichen für 20MB data + SDFR Blöcke (Superblock, DMAP, FAT, Root)
 
+#define NUM_SDFR 4
+
 /*#define BLOCKSIZE_SUPERBLOCK 512
 #define BLOCKSIZE_DMAP 4608
 #define BLOCKSIZE_FAT 512
@@ -29,6 +31,8 @@ struct MyFsFileInfo {
     size_t dataSize = 0;            //beschreibt bei ondisk wo Bytes im Block aufhören
     unsigned int start = 0;         //beschreibt bei ondisk wo Bytes im Block beginnen
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
+    unsigned int end;               //beschreibt bei welchem Byte im letzten Block Datei endet
+    unsigned int endBlock;          //beschreibt bei welchem Block Datei endet
     unsigned int userId;
     unsigned int groupId;
 
