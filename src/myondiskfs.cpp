@@ -340,69 +340,16 @@ void MyOnDiskFS::buildStructure() {
     int currentIndex = 0;
 
     for (int i = 0; i < NUM_SDFR; i++) {
-        switch (i) {
-            case 0:
-                currentIndex = sdfr.superBlock.mySuperblockindex = 0;       //stattdessen in codesnippets von dominik gucken wo sehr schlau mit zeigerarithmetik array len berechnet wird
-                LOGF("superIndex: %d", sdfr.superBlock.mySuperblockindex);
-                break;
-            case 1:
-                currentIndex = sdfr.superBlock.myDMAPindex = sdfr.superBlock.mySuperblockindex + numBlocks;
-                LOGF("dmapIndex: %d", sdfr.superBlock.myDMAPindex);
-                break;
-            case 2:
-                currentIndex = sdfr.superBlock.myFATindex = sdfr.superBlock.myDMAPindex + numBlocks;
-                LOGF("fatIndex: %d", sdfr.superBlock.myFATindex);
-                break;
-            case 3:
-                currentIndex = sdfr.superBlock.myRootindex = sdfr.superBlock.myFATindex + numBlocks;
-                LOGF("rootIndex: %d", sdfr.superBlock.myRootindex);
-                break;
-        }
-        size_t s = sdfr.operator<<(i);
+        currentIndex = sdfr.getLastIndex(i);
+        LOGF("index: %d", currentIndex + numBlocks);
+        sdfr.setIndex(i, currentIndex + numBlocks);
+        size_t s = sdfr.getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
         blockSize = numBlocks * BLOCK_SIZE;
         char puffer[blockSize];
-        memcpy(puffer, (sdfr.operator>>(i)), s);
+        memcpy(puffer, (sdfr.getStruct(i)), s);
         writeOnDisk(currentIndex, puffer, numBlocks, s);
     }
-
-    sdfr.superBlock.myDATAindex = sdfr.superBlock.myRootindex + numBlocks;
-    LOGF("myDATAindex: %d", sdfr.superBlock.myDATAindex);
-
-    /*superBlock.mySuperblockindex = 0;
-    numBlocks = sizeof(mySuperblock) % BLOCK_SIZE == 0 ? sizeof(mySuperblock) / BLOCK_SIZE : (sizeof(mySuperblock) / BLOCK_SIZE) + 1;
-    LOGF("superBlockindex: %d | sizeof: %d", superBlock.mySuperblockindex, sizeof(mySuperblock));
-    blockSize = numBlocks * BLOCK_SIZE;
-    char puffer[blockSize];
-    memcpy(puffer, &superBlock, sizeof(superBlock));
-    writeOnDisk(superBlock.mySuperblockindex, puffer, numBlocks, sizeof(mySuperblock));
-
-    superBlock.myDMAPindex = superBlock.mySuperblockindex + numBlocks;
-    numBlocks = sizeof(myDMAP) % BLOCK_SIZE == 0 ? sizeof(myDMAP) / BLOCK_SIZE : (sizeof(myDMAP) / BLOCK_SIZE) + 1;
-    LOGF("dmapindex: %d", superBlock.myDMAPindex);
-    blockSize = numBlocks * BLOCK_SIZE;
-    char puffer2[blockSize];
-    memcpy(puffer2, &dmap, sizeof(dmap));
-    writeOnDisk(superBlock.mySuperblockindex, puffer2, numBlocks, sizeof(myDMAP));
-
-    superBlock.myFATindex = superBlock.myDMAPindex + numBlocks;
-    numBlocks = sizeof(myFAT) % BLOCK_SIZE == 0 ? sizeof(myFAT) / BLOCK_SIZE : (sizeof(myFAT) / BLOCK_SIZE) + 1;
-    LOGF("fatindex: %d", superBlock.myFATindex);
-    blockSize = numBlocks * BLOCK_SIZE;
-    char puffer3[blockSize];
-    memcpy(puffer3, &fat, sizeof(fat));
-    writeOnDisk(superBlock.mySuperblockindex, puffer3, numBlocks, sizeof(myFAT));
-
-    superBlock.myRootindex = superBlock.myFATindex + numBlocks;
-    numBlocks = sizeof(myRoot) % BLOCK_SIZE == 0 ? sizeof(myRoot) / BLOCK_SIZE : (sizeof(myRoot) / BLOCK_SIZE) + 1;
-    LOGF("rootindex: %d", superBlock.myRootindex);
-    blockSize = numBlocks * BLOCK_SIZE;
-    char puffer4[blockSize];
-    memcpy(puffer4, &root, sizeof(superBlock));
-    writeOnDisk(superBlock.mySuperblockindex, puffer4, numBlocks, sizeof(myRoot));
-
-    superBlock.myDATAindex = superBlock.myRootindex + numBlocks;
-    LOGF("myDATAindex: %d", superBlock.myDATAindex);*/
 }
 
 //write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
