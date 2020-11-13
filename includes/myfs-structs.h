@@ -82,6 +82,19 @@ struct SDFR {
                 return sizeof(myRoot);
         }
     }
+
+    inline void* operator >> (int i) {
+        switch (i) {
+            case 0:
+                return &superBlock;
+            case 1:
+                return &dmap;
+            case 2:
+                return &fat;
+            case 3:
+                return &root;
+        }
+    }
 };
 
 #endif /* myfs_structs_h */

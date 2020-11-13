@@ -337,7 +337,6 @@ void MyOnDiskFS::fuseDestroy() {
 void MyOnDiskFS::buildStructure() {
     unsigned int numBlocks;
     unsigned int blockSize;
-    //SDFR* current = &sdfr;
     int currentIndex = 0;
 
     for (int i = 0; i < NUM_SDFR; i++) {
@@ -355,17 +354,20 @@ void MyOnDiskFS::buildStructure() {
                 LOGF("fatIndex: %d", sdfr.superBlock.myFATindex);
                 break;
             case 3:
-                currentIndex = sdfr.superBlock.myRootindex = sdfr.superBlock.myRootindex + numBlocks;
+                currentIndex = sdfr.superBlock.myRootindex = sdfr.superBlock.myFATindex + numBlocks;
                 LOGF("rootIndex: %d", sdfr.superBlock.myRootindex);
                 break;
         }
         size_t s = sdfr.operator<<(i);
-        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : s / BLOCK_SIZE) + 1;
+        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
         blockSize = numBlocks * BLOCK_SIZE;
         char puffer[blockSize];
-        memcpy(puffer, current, s);
+        memcpy(puffer, (sdfr.operator>>(i)), s);
         writeOnDisk(currentIndex, puffer, numBlocks, s);
     }
+
+    sdfr.superBlock.myDATAindex = sdfr.superBlock.myRootindex + numBlocks;
+    LOGF("myDATAindex: %d", sdfr.superBlock.myDATAindex);
 
     /*superBlock.mySuperblockindex = 0;
     numBlocks = sizeof(mySuperblock) % BLOCK_SIZE == 0 ? sizeof(mySuperblock) / BLOCK_SIZE : (sizeof(mySuperblock) / BLOCK_SIZE) + 1;
