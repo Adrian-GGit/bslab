@@ -16,7 +16,7 @@
 
 #define NUM_BLOCKS 100000       //TODO prüfe ob 100k reichen für 20MB data + SDFR Blöcke (Superblock, DMAP, FAT, Root)
 
-#define NUM_SDFR 4
+#define NUM_SDFR 5
 
 /*#define BLOCKSIZE_SUPERBLOCK 512
 #define BLOCKSIZE_DMAP 4608
@@ -45,24 +45,95 @@ struct MyFsFileInfo {
     char* data;                 //bleibt bei ondisk immer null
 };
 
-struct mySuperblock {
-    unsigned int mySuperblockindex;     //start von Superblock
-    unsigned int myDMAPindex;           //start von DMAP
-    unsigned int myFATindex;           //start von FAT
-    unsigned int myRootindex;          //start von Root
-    unsigned int myDATAindex;          //start von Data
-};
+struct SDFR {
+    struct mySuperblock {
+        unsigned int mySuperblockindex = 0;     //start von Superblock
+        unsigned int myDMAPindex;           //start von DMAP
+        unsigned int myFATindex;           //start von FAT
+        unsigned int myRootindex;          //start von Root
+        unsigned int myDATAindex;          //start von Data
+    };
+    mySuperblock superBlock;
 
-struct myDMAP {
-    unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
-};
+    struct myDMAP {
+        unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
+    };
+    myDMAP dmap;
 
-struct myFAT {
-    unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
-};
+    struct myFAT {
+        unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
+    };
+    myFAT fat;
 
-struct myRoot {
-    MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
+    struct myRoot {
+        MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
+    };
+    myRoot root;
+
+    struct myData {
+
+    };
+    myData data;
+
+    size_t getSize(int i) {
+        switch (i) {
+            case 0:
+                return sizeof(mySuperblock);
+            case 1:
+                return sizeof(myDMAP);
+            case 2:
+                return sizeof(myFAT);
+            case 3:
+                return sizeof(myRoot);
+            case 4:
+                return sizeof(data);
+        }
+    }
+
+    void* getStruct (int i) {
+        switch (i) {
+            case 0:
+                return &superBlock;
+            case 1:
+                return &dmap;
+            case 2:
+                return &fat;
+            case 3:
+                return &root;
+            case 4:
+                return &data;
+        }
+    }
+
+    unsigned int getLastIndex (int i) {
+        switch (i) {
+            case 0:
+                return 0;
+            case 1:
+                return superBlock.mySuperblockindex;
+            case 2:
+                return superBlock.myDMAPindex;
+            case 3:
+                return superBlock.myFATindex;
+            case 4:
+                return superBlock.myRootindex;
+        }
+    }
+
+    void setIndex (int i, int index) {
+        switch (i) {
+            case 0:
+                superBlock.mySuperblockindex = index;
+            case 1:
+                superBlock.myDMAPindex = index;
+            case 2:
+                superBlock.myFATindex = index;
+            case 3:
+                superBlock.myRootindex = index;
+            case 4:
+                superBlock.myDATAindex = index;
+        }
+    }
 };
 
 #endif /* myfs_structs_h */
