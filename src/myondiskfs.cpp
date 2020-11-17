@@ -357,6 +357,10 @@ void MyOnDiskFS::buildStructure() {
             writeOnDisk(sdfr.getLastIndex(i + 1), puffer, numBlocks, s);
         }
     }
+
+    LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
+         sdfr.superBlock->mySuperblockindex, sdfr.superBlock->myDMAPindex, sdfr.superBlock->myFATindex, sdfr.superBlock->myRootindex, sdfr.superBlock->myDATAindex);
+
 }
 
 //write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
@@ -389,8 +393,7 @@ void MyOnDiskFS::readContainer() {
             readOnDisk(blockNumber, puffer, numBlocks, s);
             LOGF("Size puffer: %d", sizeof(puffer));
             LOGF("Size struct: %d", s);
-            memcpy(sdfr.getStruct(i), puffer, s);
-            //sdfr.getStruct(i) = *reinterpret_cast<void*>()
+            sdfr.setStruct(i, puffer);
         }
         currentIndex = sdfr.getLastIndex(i);
         LOGF("index: %d", currentIndex + numBlocks);

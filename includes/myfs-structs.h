@@ -99,6 +99,23 @@ struct SDFR {
         }
     }
 
+    void setStruct (int i, void* puffer) {
+        switch (i) {
+            case 0:
+                this->superBlock = reinterpret_cast<mySuperblock *>(puffer);
+                break;
+            case 1:
+                this->dmap = reinterpret_cast<myDMAP *>(puffer);;
+                break;
+            case 2:
+                this->fat = reinterpret_cast<myFAT *>(puffer);;
+                break;
+            case 3:
+                this->root = reinterpret_cast<myRoot *>(puffer);;
+                break;
+        }
+    }
+
     unsigned int getLastIndex (int i) {
         switch (i) {
             case 0:
