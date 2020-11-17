@@ -32,7 +32,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
 
     //alle Blöcke sind noch frei
     for (int i = 0; i < NUM_BLOCKS; i++) {
-        sdfr.dmap.freeBlocks[i] = '0';
+        sdfr.dmap->freeBlocks[i] = '0';
     }
 
 }
@@ -328,7 +328,10 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 void MyOnDiskFS::fuseDestroy() {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    delete sdfr.superBlock;
+    delete sdfr.dmap;
+    delete sdfr.fat;
+    delete sdfr.root;
 
 }
 
@@ -343,12 +346,16 @@ void MyOnDiskFS::buildStructure() {
         currentIndex = sdfr.getLastIndex(i);
         LOGF("index: %d", currentIndex + numBlocks);
         sdfr.setIndex(i, currentIndex + numBlocks);
-        size_t s = sdfr.getSize(i);
-        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-        blockSize = numBlocks * BLOCK_SIZE;
-        char puffer[blockSize];
-        memcpy(puffer, (sdfr.getStruct(i)), s);
-        writeOnDisk(currentIndex, puffer, numBlocks, s);
+        if (i != NUM_SDFR - 1) {
+            size_t s = sdfr.getSize(i);
+            numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+            blockSize = numBlocks * BLOCK_SIZE;
+            char puffer[blockSize];
+            sdfr.getStruct(i);
+            memcpy(puffer, (sdfr.getStruct(i)), s);
+            writeOnDisk(sdfr.getLastIndex(i + 1), puffer, numBlocks, s);
+        }
+
     }
 }
 

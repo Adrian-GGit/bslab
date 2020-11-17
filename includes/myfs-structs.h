@@ -29,10 +29,9 @@
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
     size_t dataSize = 0;            //beschreibt bei ondisk wo Bytes im Block aufhören
-    unsigned int start = 0;         //beschreibt bei ondisk wo Bytes im Block beginnen
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
-    unsigned int end;               //beschreibt bei welchem Byte im letzten Block Datei endet
-    unsigned int endBlock;          //beschreibt bei welchem Block Datei endet
+    unsigned int end;               //beschreibt bei ondisk bei welchem Byte im letzten Block Datei endet
+    //unsigned int endBlock;          //beschreibt bei welchem Block Datei endet wird evtl durch 0xFFFFF ersetzt
     unsigned int userId;
     unsigned int groupId;
 
@@ -53,55 +52,67 @@ struct SDFR {
         unsigned int myRootindex;          //start von Root
         unsigned int myDATAindex;          //start von Data
     };
-    mySuperblock superBlock;
+    mySuperblock* superBlock = new mySuperblock();      //in fuseDestory werden alle allokierten Variablen mit delete wieder gelöscht
 
     struct myDMAP {
         unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
     };
-    myDMAP dmap;
+    myDMAP* dmap = new myDMAP();
 
     struct myFAT {
-        unsigned int FATTable[NUM_DIR_ENTRIES];     //kommt noch in VL
+        unsigned int FATTable[NUM_BLOCKS];     //kommt noch in VL
     };
-    myFAT fat;
+    myFAT* fat = new myFAT();
 
     struct myRoot {
         MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
     };
-    myRoot root;
-
-    struct myData {
-
-    };
-    myData data;
+    myRoot* root = new myRoot();
 
     size_t getSize(int i) {
         switch (i) {
             case 0:
+                //printf("Size superblock: %d", sizeof(mySuperblock));
                 return sizeof(mySuperblock);
             case 1:
+                //printf("Size dmap: %d", sizeof(myDMAP));
                 return sizeof(myDMAP);
             case 2:
+                //printf("Size fat: %d", sizeof(myFAT));
                 return sizeof(myFAT);
             case 3:
+                //printf("Size root: %d", sizeof(myRoot));
                 return sizeof(myRoot);
-            case 4:
-                return sizeof(data);
         }
     }
 
     void* getStruct (int i) {
         switch (i) {
             case 0:
-                return &superBlock;
+                return superBlock;
             case 1:
-                return &dmap;
+                return dmap;
             case 2:
-                return &fat;
+                return fat;
             case 3:
-                return &root;
-            case 4:
-                return &data;
+                return root;
+        }
+    }
+
+    void setStruct (int i, void* structure) {
+        switch (i) {
+            case 0:
+                superBlock = (mySuperblock*) structure;
+                break;
+            case 1:
+                dmap = (myDMAP*) structure;
+                break;
+            case 2:
+                fat = (myFAT*) structure;
+                break;
+            case 3:
+                root = (myRoot*) structure;
+                break;
         }
     }
 
@@ -110,28 +121,28 @@ struct SDFR {
             case 0:
                 return 0;
             case 1:
-                return superBlock.mySuperblockindex;
+                return superBlock->mySuperblockindex;
             case 2:
-                return superBlock.myDMAPindex;
+                return superBlock->myDMAPindex;
             case 3:
-                return superBlock.myFATindex;
+                return superBlock->myFATindex;
             case 4:
-                return superBlock.myRootindex;
+                return superBlock->myRootindex;
         }
     }
 
     void setIndex (int i, int index) {
         switch (i) {
             case 0:
-                superBlock.mySuperblockindex = index;
+                superBlock->mySuperblockindex = index;
             case 1:
-                superBlock.myDMAPindex = index;
+                superBlock->myDMAPindex = index;
             case 2:
-                superBlock.myFATindex = index;
+                superBlock->myFATindex = index;
             case 3:
-                superBlock.myRootindex = index;
+                superBlock->myRootindex = index;
             case 4:
-                superBlock.myDATAindex = index;
+                superBlock->myDATAindex = index;
         }
     }
 };
