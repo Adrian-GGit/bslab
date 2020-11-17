@@ -99,23 +99,6 @@ struct SDFR {
         }
     }
 
-    void setStruct (int i, void* structure) {
-        switch (i) {
-            case 0:
-                superBlock = (mySuperblock*) structure;
-                break;
-            case 1:
-                dmap = (myDMAP*) structure;
-                break;
-            case 2:
-                fat = (myFAT*) structure;
-                break;
-            case 3:
-                root = (myRoot*) structure;
-                break;
-        }
-    }
-
     unsigned int getLastIndex (int i) {
         switch (i) {
             case 0:

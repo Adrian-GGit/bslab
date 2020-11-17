@@ -28,10 +28,6 @@ public:
     // TODO: [PART 2] You may add attributes of your file system here
 
     SDFR sdfr;
-    /*mySuperblock superBlock;
-    myDMAP dmap;
-    myFAT fat;
-    myRoot root;*/
 
     MyFS();
     ~MyFS();

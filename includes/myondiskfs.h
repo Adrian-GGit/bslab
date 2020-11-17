@@ -45,6 +45,7 @@ public:
     void buildStructure();
     void writeOnDisk(unsigned int blockNumber, char* buf, unsigned int numBlocks, size_t size);
     void readContainer();
+    void readOnDisk(unsigned int blockNumber, char *puf, unsigned int numBlocks, size_t size);
 };
 
 #endif //MYFS_MYONDISKFS_H

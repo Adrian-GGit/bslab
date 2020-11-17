@@ -342,6 +342,7 @@ void MyOnDiskFS::buildStructure() {
     unsigned int blockSize;
     int currentIndex = 0;
 
+    //TODO evtl einfach komplette struct sdfr in den puffer
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr.getLastIndex(i);
         LOGF("index: %d", currentIndex + numBlocks);
@@ -355,7 +356,6 @@ void MyOnDiskFS::buildStructure() {
             memcpy(puffer, (sdfr.getStruct(i)), s);
             writeOnDisk(sdfr.getLastIndex(i + 1), puffer, numBlocks, s);
         }
-
     }
 }
 
@@ -373,10 +373,43 @@ void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned in
     }
 }
 
+//TODO funktioniert noch nicht ganz!!! -> Debug
 void MyOnDiskFS::readContainer() {
+    unsigned int numBlocks;
+    unsigned int blockSize;
+    unsigned int currentIndex;
+    unsigned int blockNumber = 0;
 
-    //TODO
+    for (int i = 0; i < NUM_SDFR; i++) {
+        if (i != NUM_SDFR - 1) {
+            size_t s = sdfr.getSize(i);
+            numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+            blockSize = numBlocks * BLOCK_SIZE;
+            char puffer[blockSize];
+            readOnDisk(blockNumber, puffer, numBlocks, s);
+            LOGF("Size puffer: %d", sizeof(puffer));
+            LOGF("Size struct: %d", s);
+            memcpy(sdfr.getStruct(i), puffer, s);
+            //sdfr.getStruct(i) = *reinterpret_cast<void*>()
+        }
+        currentIndex = sdfr.getLastIndex(i);
+        LOGF("index: %d", currentIndex + numBlocks);
+        blockNumber = currentIndex + numBlocks;
+    }
+}
 
+//TODO evtl sogar write und read zusammen packen zu einer funktion mit unterscheidung write oder read
+void MyOnDiskFS::readOnDisk(unsigned int blockNumber, char* puf, unsigned int numBlocks, size_t size) {
+    char buf[BLOCK_SIZE];
+    size_t currentSize;
+
+    for (int i = 0; i < numBlocks; i++) {
+        currentSize = i == numBlocks - 1 ? (size - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE;
+        blockDevice->read(blockNumber, buf);
+        memcpy(buf, puf, currentSize);
+        blockNumber++;
+        puf += BLOCK_SIZE;
+    }
 }
 
 
