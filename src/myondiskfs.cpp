@@ -32,7 +32,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
 
     //alle Blöcke sind noch frei
     for (int i = 0; i < NUM_BLOCKS; i++) {
-        sdfr.dmap->freeBlocks[i] = '0';
+        sdfr->dmap->freeBlocks[i] = '0';
     }
 
 }
@@ -275,6 +275,113 @@ int MyOnDiskFS::fuseReaddir(const char *path, void *buf, fuse_fill_dir_t filler,
 /// \param [in] conn Can be ignored.
 /// \return 0.
 void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
+    struct SDFRtest {
+        struct mySuperblock {
+            unsigned int mySuperblockindex = 0;     //start von Superblock
+            unsigned int myDMAPindex;           //start von DMAP
+            unsigned int myFATindex;           //start von FAT
+            unsigned int myRootindex;          //start von Root
+            unsigned int myDATAindex;          //start von Data
+        };
+        mySuperblock* superBlock = new mySuperblock;      //in fuseDestory werden alle allokierten Variablen mit delete wieder gelöscht
+
+        struct myDMAP {
+            unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
+        };
+        myDMAP* dmap = new myDMAP;
+
+        struct myFAT {
+            unsigned int FATTable[NUM_BLOCKS];     //kommt noch in VL
+        };
+        myFAT* fat = new myFAT;
+
+        struct myRoot {
+            MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
+        };
+        myRoot* root = new myRoot;
+
+        size_t getSize(int i) {
+            switch (i) {
+                case 0:
+                    //printf("Size superblock: %d", sizeof(mySuperblock));
+                    return sizeof(mySuperblock);
+                case 1:
+                    //printf("Size dmap: %d", sizeof(myDMAP));
+                    return sizeof(myDMAP);
+                case 2:
+                    //printf("Size fat: %d", sizeof(myFAT));
+                    return sizeof(myFAT);
+                case 3:
+                    //printf("Size root: %d", sizeof(myRoot));
+                    return sizeof(myRoot);
+            }
+        }
+
+        void* getStruct (int i) {
+            switch (i) {
+                case 0:
+                    return superBlock;
+                case 1:
+                    return dmap;
+                case 2:
+                    return fat;
+                case 3:
+                    return root;
+            }
+        }
+
+        void setStruct (int i, void* puffer) {
+            switch (i) {
+                case 0:
+                    superBlock = static_cast<mySuperblock *>(puffer);
+                    break;
+                case 1:
+                    dmap = static_cast<myDMAP *>(puffer);;
+                    break;
+                case 2:
+                    fat = static_cast<myFAT *>(puffer);;
+                    break;
+                case 3:
+                    root = static_cast<myRoot *>(puffer);;
+                    break;
+            }
+        }
+
+        unsigned int getLastIndex (int i) {
+            switch (i) {
+                case 0:
+                    return 0;
+                case 1:
+                    return superBlock->mySuperblockindex;
+                case 2:
+                    return superBlock->myDMAPindex;
+                case 3:
+                    return superBlock->myFATindex;
+                case 4:
+                    return superBlock->myRootindex;
+            }
+        }
+
+        void setIndex (int i, int index) {
+            switch (i) {
+                case 0:
+                    superBlock->mySuperblockindex = index;
+                case 1:
+                    superBlock->myDMAPindex = index;
+                case 2:
+                    superBlock->myFATindex = index;
+                case 3:
+                    superBlock->myRootindex = index;
+                case 4:
+                    superBlock->myDATAindex = index;
+            }
+        }
+    };
+
+
+    SDFRtest* s = new SDFRtest;
+
+
     // Open logfile
     this->logFile= fopen(((MyFsInfo *) fuse_get_context()->private_data)->logFile, "w+");
     if(this->logFile == NULL) {
@@ -295,7 +402,14 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
             LOG("Container file does exist, reading");
 
             // TODO: [PART 2] Read existing structures form file
-            readContainer();
+            //readContainer();
+
+            //LOGF("oldint: %d", s->superBlock->mySuperblockindex);
+            char buffer[sizeof(s->superBlock)];
+            blockDevice->read(0, buffer);
+            s->setStruct(0, buffer);
+            LOGF("newint: %d", s->superBlock->myDATAindex);
+
 
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
@@ -309,8 +423,51 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
                 this->blockDevice->create("/home/user/bslab/container.bin");
 
                 //baue Struktur auf:
-                buildStructure();
+                //buildStructure();
 
+                /*s->setIndex(0, 1000);
+                LOGF("oldint: %d", s->superBlock->mySuperblockindex);
+                LOGF("size: %d", s->getSize(0));
+                char buf[s->getSize(0)];
+                memcpy(buf, s->getStruct(0), s->getSize(0));
+                blockDevice->write(0, buf);*/
+
+
+                //buildStructure();
+                /*unsigned int numBlocks = 0;
+                unsigned int blockSize;
+                int currentIndex = 0;
+
+                for (int i = 0; i < NUM_SDFR; i++) {
+                    currentIndex = s->getLastIndex(i);
+                    size_t si = s->getSize(i);
+                    numBlocks = si % BLOCK_SIZE == 0 ? si / BLOCK_SIZE : (si / BLOCK_SIZE) + 1;
+                    LOGF("index: %d", currentIndex + numBlocks);
+                    s->setIndex(i, currentIndex + numBlocks);
+                    if (i != NUM_SDFR - 1) {
+
+                        blockSize = numBlocks * BLOCK_SIZE;
+                        char puffer[blockSize];
+                        memcpy(puffer, (s->getStruct(i)), si);
+                        //writeOnDisk(s->getLastIndex(i + 1), puffer, numBlocks, si);
+                        char buf[BLOCK_SIZE];
+                        size_t currentSize;
+                        unsigned int counter = 0;
+                        unsigned int blockNumber = s->getLastIndex(i);
+
+                        for (int i = 0; i < numBlocks; i++) {
+                            currentSize = i == numBlocks - 1 ? (si - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE;
+                            memcpy(buf, puffer + counter, currentSize);
+                            blockDevice->write(blockNumber, buf);
+                            blockNumber++;
+                            counter += BLOCK_SIZE;
+                        }
+                        char buff[s->getSize(0)];
+                        blockDevice->read(0, buff);
+                        s->setStruct(0, buff);
+                        LOGF("newint: %d", s->superBlock->mySuperblockindex);
+                    }
+                }*/
             }
         }
 
@@ -328,10 +485,10 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 void MyOnDiskFS::fuseDestroy() {
     LOGM();
 
-    delete sdfr.superBlock;
-    delete sdfr.dmap;
-    delete sdfr.fat;
-    delete sdfr.root;
+    delete sdfr->superBlock;
+    delete sdfr->dmap;
+    delete sdfr->fat;
+    delete sdfr->root;
 
 }
 
@@ -342,24 +499,23 @@ void MyOnDiskFS::buildStructure() {
     unsigned int blockSize;
     int currentIndex = 0;
 
-    //TODO evtl einfach komplette struct sdfr in den puffer
     for (int i = 0; i < NUM_SDFR; i++) {
-        currentIndex = sdfr.getLastIndex(i);
+        currentIndex = sdfr->getLastIndex(i);
         LOGF("index: %d", currentIndex + numBlocks);
-        sdfr.setIndex(i, currentIndex + numBlocks);
+        sdfr->setIndex(i, currentIndex + numBlocks);
         if (i != NUM_SDFR - 1) {
-            size_t s = sdfr.getSize(i);
+            size_t s = sdfr->getSize(i);
             numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
             blockSize = numBlocks * BLOCK_SIZE;
             char puffer[blockSize];
-            sdfr.getStruct(i);
-            memcpy(puffer, (sdfr.getStruct(i)), s);
-            writeOnDisk(sdfr.getLastIndex(i + 1), puffer, numBlocks, s);
+            sdfr->getStruct(i);
+            memcpy(puffer, (sdfr->getStruct(i)), s);
+            writeOnDisk(sdfr->getLastIndex(i + 1), puffer, numBlocks, s);
         }
     }
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
-         sdfr.superBlock->mySuperblockindex, sdfr.superBlock->myDMAPindex, sdfr.superBlock->myFATindex, sdfr.superBlock->myRootindex, sdfr.superBlock->myDATAindex);
+         sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
 
 }
 
@@ -367,13 +523,14 @@ void MyOnDiskFS::buildStructure() {
 void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks, size_t size) {
     char buf[BLOCK_SIZE];
     size_t currentSize;
+    unsigned int counter = 0;
 
     for (int i = 0; i < numBlocks; i++) {
         currentSize = i == numBlocks - 1 ? (size - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE;
-        memcpy(buf, pufAll, currentSize);
+        memcpy(buf, pufAll + counter, currentSize);
         blockDevice->write(blockNumber, buf);
         blockNumber++;
-        pufAll += BLOCK_SIZE;   //evtl verschiebt sich der Pointer NICHT um 512 Bytes - testen
+        counter += BLOCK_SIZE;
     }
 }
 
@@ -386,16 +543,16 @@ void MyOnDiskFS::readContainer() {
 
     for (int i = 0; i < NUM_SDFR; i++) {
         if (i != NUM_SDFR - 1) {
-            size_t s = sdfr.getSize(i);
+            size_t s = sdfr->getSize(i);
             numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
             blockSize = numBlocks * BLOCK_SIZE;
             char puffer[blockSize];
             readOnDisk(blockNumber, puffer, numBlocks, s);
             LOGF("Size puffer: %d", sizeof(puffer));
             LOGF("Size struct: %d", s);
-            sdfr.setStruct(i, puffer);
+            sdfr->setStruct(i, puffer);
         }
-        currentIndex = sdfr.getLastIndex(i);
+        currentIndex = sdfr->getLastIndex(i);
         LOGF("index: %d", currentIndex + numBlocks);
         blockNumber = currentIndex + numBlocks;
     }
