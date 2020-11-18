@@ -52,22 +52,22 @@ struct SDFR {
         unsigned int myRootindex;          //start von Root
         unsigned int myDATAindex;          //start von Data
     };
-    mySuperblock* superBlock = new mySuperblock();      //in fuseDestory werden alle allokierten Variablen mit delete wieder gelöscht
+    mySuperblock* superBlock = new mySuperblock;      //in fuseDestory werden alle allokierten Variablen mit delete wieder gelöscht
 
     struct myDMAP {
         unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
     };
-    myDMAP* dmap = new myDMAP();
+    myDMAP* dmap = new myDMAP;
 
     struct myFAT {
         unsigned int FATTable[NUM_BLOCKS];     //kommt noch in VL
     };
-    myFAT* fat = new myFAT();
+    myFAT* fat = new myFAT;
 
     struct myRoot {
         MyFsFileInfo fileInfos[NUM_DIR_ENTRIES];
     };
-    myRoot* root = new myRoot();
+    myRoot* root = new myRoot;
 
     size_t getSize(int i) {
         switch (i) {
