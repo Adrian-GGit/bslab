@@ -347,7 +347,6 @@ void MyOnDiskFS::buildStructure() {
     unsigned int numBlocks = 0;
     int currentIndex = 0;
 
-
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr->getIndex(i);
         LOGF("index: %d", currentIndex + numBlocks);
@@ -364,25 +363,10 @@ void MyOnDiskFS::buildStructure() {
         writeOnDisk(sdfr->getIndex(i), buf, numBlocks, sdfr->getSize(i));;
     }
 
-/*LOGF("oldint: %d", sdfr->superBlock->mySuperblockindex);
-char buf[sdfr->getSize(0)];
-memcpy(buf, sdfr->getStruct(0), sdfr->getSize(0));
-writeOnDisk(sdfr->getIndex(0), buf, 1, sdfr->getSize(0));
-
-char buffer[sdfr->getSize(1)];
-memcpy(buffer, sdfr->getStruct(1), sdfr->getSize(1));
-writeOnDisk(sdfr->getIndex(1), buffer, 196, sdfr->getSize(1));
-
-char buffer2[sdfr->getSize(2)];
-memcpy(buffer2, sdfr->getStruct(2), sdfr->getSize(2));
-writeOnDisk(sdfr->getIndex(2), buffer2, 782, sdfr->getSize(2));
-
-char buffer3[sdfr->getSize(3)];
-memcpy(buffer3, sdfr->getStruct(3), sdfr->getSize(3));
-writeOnDisk(sdfr->getIndex(3), buffer3, 40, sdfr->getSize(3));*/
-
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
+    LOGF("len dmap: %d | len fat: %d | len root: %d",
+         sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
 
 }
 
@@ -424,6 +408,8 @@ void MyOnDiskFS::readContainer() {
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
+    LOGF("len dmap: %d | len fat: %d | len root: %d",
+         sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
 }
 
 //TODO evtl sogar write und read zusammen packen zu einer funktion mit unterscheidung write oder read

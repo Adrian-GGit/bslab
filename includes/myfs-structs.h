@@ -99,23 +99,6 @@ struct SDFR {
         }
     }
 
-    void setStruct (int i, void* puffer) {
-        switch (i) {
-            case 0:
-                superBlock = static_cast<mySuperblock *>(puffer);
-                break;
-            case 1:
-                dmap = reinterpret_cast<myDMAP *>(puffer);;
-                break;
-            case 2:
-                fat = reinterpret_cast<myFAT *>(puffer);;
-                break;
-            case 3:
-                root = reinterpret_cast<myRoot *>(puffer);;
-                break;
-        }
-    }
-
     unsigned int getIndex (int i) {
         switch (i) {
             case 0:
