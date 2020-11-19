@@ -297,12 +297,6 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
             // TODO: [PART 2] Read existing structures form file
             readContainer();
 
-            /*char buf[BLOCK_SIZE];
-            blockDevice->read(0, buf);
-            memcpy(sdfr->getStruct(0), buf, sdfr->getSize(0));
-            LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
-                 sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);*/
-
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
 
