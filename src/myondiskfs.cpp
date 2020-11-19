@@ -346,37 +346,40 @@ void MyOnDiskFS::fuseDestroy() {
 void MyOnDiskFS::buildStructure() {
     unsigned int numBlocks = 0;
     int currentIndex = 0;
-    //char* puffer;
+
 
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr->getIndex(i);
         LOGF("index: %d", currentIndex + numBlocks);
         sdfr->setIndex(i, currentIndex + numBlocks);
-        if (i != NUM_SDFR - 1) {
-            size_t s = sdfr->getSize(i);
-            numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-            char buf[sdfr->getSize(i)];
-            memcpy(buf, sdfr->getStruct(i), sdfr->getSize(i));
-            writeOnDisk(sdfr->getIndex(i), buf, numBlocks, sdfr->getSize(i));
-        }
-
+        size_t s = sdfr->getSize(i);
+        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
     }
-    /*LOGF("oldint: %d", sdfr->superBlock->mySuperblockindex);
-    char buf[sdfr->getSize(0)];
-    memcpy(buf, sdfr->getStruct(0), sdfr->getSize(0));
-    writeOnDisk(sdfr->getIndex(0), buf, 1, sdfr->getSize(0));
 
-    char buffer[sdfr->getSize(1)];
-    memcpy(buffer, sdfr->getStruct(1), sdfr->getSize(1));
-    writeOnDisk(sdfr->getIndex(1), buffer, 196, sdfr->getSize(1));
+    for (int i = 0; i < NUM_SDFR - 1; i++) {
+        size_t s = sdfr->getSize(i);
+        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+        char buf[sdfr->getSize(i)];
+        memcpy(buf, sdfr->getStruct(i), sdfr->getSize(i));
+        writeOnDisk(sdfr->getIndex(i), buf, numBlocks, sdfr->getSize(i));;
+    }
 
-    char buffer2[sdfr->getSize(2)];
-    memcpy(buffer2, sdfr->getStruct(2), sdfr->getSize(2));
-    writeOnDisk(sdfr->getIndex(2), buffer2, 782, sdfr->getSize(2));
+/*LOGF("oldint: %d", sdfr->superBlock->mySuperblockindex);
+char buf[sdfr->getSize(0)];
+memcpy(buf, sdfr->getStruct(0), sdfr->getSize(0));
+writeOnDisk(sdfr->getIndex(0), buf, 1, sdfr->getSize(0));
 
-    char buffer3[sdfr->getSize(3)];
-    memcpy(buffer3, sdfr->getStruct(3), sdfr->getSize(3));
-    writeOnDisk(sdfr->getIndex(3), buffer3, 40, sdfr->getSize(3));*/
+char buffer[sdfr->getSize(1)];
+memcpy(buffer, sdfr->getStruct(1), sdfr->getSize(1));
+writeOnDisk(sdfr->getIndex(1), buffer, 196, sdfr->getSize(1));
+
+char buffer2[sdfr->getSize(2)];
+memcpy(buffer2, sdfr->getStruct(2), sdfr->getSize(2));
+writeOnDisk(sdfr->getIndex(2), buffer2, 782, sdfr->getSize(2));
+
+char buffer3[sdfr->getSize(3)];
+memcpy(buffer3, sdfr->getStruct(3), sdfr->getSize(3));
+writeOnDisk(sdfr->getIndex(3), buffer3, 40, sdfr->getSize(3));*/
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
@@ -392,7 +395,7 @@ void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned in
     unsigned int counter = 0;
 
     for (int i = 0; i < numBlocks; i++) {
-        currentSize = i == numBlocks - 1 ? (size - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE; //oder currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+        currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
         memcpy(buf, pufAll + counter, currentSize);
         blockDevice->write(blockNumber, buf);
         blockNumber++;
@@ -430,7 +433,7 @@ void MyOnDiskFS::readOnDisk(unsigned int blockNumber, char* puf, unsigned int nu
     unsigned int counter = 0;
 
     for (int i = 0; i < numBlocks; i++) {
-        currentSize = i == numBlocks - 1 ? (size - ((numBlocks - 1) * BLOCK_SIZE)) : BLOCK_SIZE; //oder currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+        currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
         blockDevice->read(blockNumber, buf);
         memcpy(puf + counter, buf, currentSize);
         blockNumber++;
