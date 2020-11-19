@@ -116,18 +116,18 @@ struct SDFR {
         }
     }
 
-    unsigned int getLastIndex (int i) {
+    unsigned int getIndex (int i) {
         switch (i) {
             case 0:
-                return 0;
-            case 1:
                 return superBlock->mySuperblockindex;
-            case 2:
+            case 1:
                 return superBlock->myDMAPindex;
-            case 3:
+            case 2:
                 return superBlock->myFATindex;
-            case 4:
+            case 3:
                 return superBlock->myRootindex;
+            case 4:
+                return superBlock->myDATAindex;
         }
     }
 
