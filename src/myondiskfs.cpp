@@ -295,13 +295,10 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
             LOG("Container file does exist, reading");
 
             // TODO: [PART 2] Read existing structures form file
+            setIndexes();
+            //read Container
             readContainer();
-
-            /*char buf[BLOCK_SIZE];
-            blockDevice->read(0, buf);
-            memcpy(sdfr->getStruct(0), buf, sdfr->getSize(0));
-            LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
-                 sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);*/
+            //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
 
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
@@ -314,8 +311,10 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
                 this->blockDevice->create("/home/user/bslab/container.bin");
 
+                setIndexes();
                 //baue Struktur auf:
                 buildStructure();
+                //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
 
             }
         }
@@ -341,19 +340,23 @@ void MyOnDiskFS::fuseDestroy() {
 
 }
 
+void MyOnDiskFS::setIndexes() {
+    int currentIndex = 0;
+    unsigned int numBlocks = 0;
+
+    for (int i = 0; i < NUM_SDFR; i++) {
+        currentIndex = sdfr->getIndex(i);
+        sdfr->setIndex(i, currentIndex + numBlocks);
+        indexes[i] = currentIndex + numBlocks;
+        size_t s = sdfr->getSize(i);
+        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+    }
+}
+
 // TODO: [PART 2] You may add your own additional methods here!
 
 void MyOnDiskFS::buildStructure() {
     unsigned int numBlocks = 0;
-    int currentIndex = 0;
-
-    for (int i = 0; i < NUM_SDFR; i++) {
-        currentIndex = sdfr->getIndex(i);
-        LOGF("index: %d", currentIndex + numBlocks);
-        sdfr->setIndex(i, currentIndex + numBlocks);
-        size_t s = sdfr->getSize(i);
-        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-    }
 
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
@@ -371,6 +374,7 @@ void MyOnDiskFS::buildStructure() {
 }
 
 //TODO immer wenn an einer Datei was geändert wird müssen auch die sdfr Blöcke verändert werden in der .bin -> funktion synchronize()
+//TODO anfangs sind keine Blöcke belegt -> writeondisk sollte am besten immer nächstliegenden Block nehmen -> keine eigene Funktion für building, da sdfr blöcke dann garantiert nebeneinander liegen
 
 //write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
 void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks, size_t size) {
@@ -393,7 +397,7 @@ void MyOnDiskFS::readContainer() {
     unsigned int currentIndex = 0;
     unsigned int blockNumber = 0;
 
-    for (int i = 0; i < NUM_SDFR; i++) {
+    /*for (int i = 0; i < NUM_SDFR; i++) {
         if (i != NUM_SDFR - 1) {
             size_t s = sdfr->getSize(i);
             numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
@@ -402,8 +406,14 @@ void MyOnDiskFS::readContainer() {
             memcpy(sdfr->getStruct(i), puffer, s);
         }
         currentIndex = sdfr->getIndex(i);
-        LOGF("index: %d", currentIndex);
         blockNumber = currentIndex + numBlocks;
+    }*/
+    for (int i = 0; i < NUM_SDFR - 1; i++) {
+        size_t s = sdfr->getSize(i);
+        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+        char puffer[s];
+        readOnDisk(indexes[i], puffer, numBlocks, s);
+        memcpy(sdfr->getStruct(i), puffer, s);
     }
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
