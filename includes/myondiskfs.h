@@ -49,6 +49,9 @@ public:
     void readContainer();
     void readOnDisk(unsigned int blockNumber, char *puf, unsigned int numBlocks, size_t size);
     void setIndexes();
+    int searchForFile(const char *path);
+    void updateTime(int index, int timeIndex);
+    void copyFileNameIntoArray(const char *fileName, char *fileArray);
 };
 
 #endif //MYFS_MYONDISKFS_H

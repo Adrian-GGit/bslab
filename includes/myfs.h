@@ -27,6 +27,7 @@ public:
 
     int count;
     int openFiles;
+    int index;
     
     // TODO: [PART 2] You may add attributes of your file system here
 

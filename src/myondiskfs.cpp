@@ -90,9 +90,13 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
 int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
-
-    RETURN(0);
+    index = searchForFile(path);
+    if(index >= 0) {
+        copyFileNameIntoArray(newpath + 1, sdfr->root->fileInfos[index].fileName);
+        updateTime(index, 1);
+        RETURN(0);
+    }
+    RETURN(index);
 }
 
 /// @brief Get file meta data.
@@ -104,9 +108,49 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
 int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    LOGF( "\tAttributes of %s requested\n", path );
 
-    RETURN(0);
+    // GNU's definitions of the attributes (http://www.gnu.org/software/libc/manual/html_node/Attribute-Meanings.html):
+    // 		st_uid: 	The user ID of the file’s owner.
+    //		st_gid: 	The group ID of the file.
+    //		st_atime: 	This is the last access time for the file.
+    //		st_mtime: 	This is the time of the last modification to the contents of the file.
+    //		st_mode: 	Specifies the mode of the file. This includes file type information (see Testing File Type) and
+    //		            the file permission bits (see Permission Bits).
+    //		st_nlink: 	The number of hard links to the file. This count keeps track of how many directories have
+    //	             	entries for this file. If the count is ever decremented to zero, then the file itself is
+    //	             	discarded as soon as no process still holds it open. Symbolic links are not counted in the
+    //	             	total.
+    //		st_size:	This specifies the size of a regular file in bytes. For files that are really devices this field
+    //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
+    //		            refers to.
+
+    index = searchForFile(path);
+
+    statbuf->st_uid = sdfr->root->fileInfos[index].userId;
+    statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
+    updateTime(index, 1);
+    statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
+    statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
+
+    int ret= 0;
+
+    if ( strcmp( path, "/" ) == 0 )
+    {
+        statbuf->st_mode = S_IFDIR | 0755;
+        statbuf->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
+        RETURN(ret);
+    }
+
+    if(index >= 0) {
+        statbuf->st_mode = sdfr->root->fileInfos[index].mode;
+        statbuf->st_nlink = 1;
+        statbuf->st_size = sdfr->root->fileInfos[index].dataSize;
+
+        RETURN(ret);
+    }
+
+    RETURN(index);
 }
 
 /// @brief Change file permissions.
@@ -264,6 +308,8 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
 int MyOnDiskFS::fuseReaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
+    //TODO test this
+
     LOGF( "--> Getting The List of Files of %s\n", path );
 
     filler( buf, ".", NULL, 0 ); // Current Directory
@@ -326,6 +372,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
                 //baue Struktur auf:
                 buildStructure();
                 //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
+                //TODO write test to confirm that structures are build and read right
 
             }
         }
@@ -362,6 +409,43 @@ void MyOnDiskFS::setIndexes() {
         size_t s = sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
     }
+}
+
+int MyOnDiskFS::searchForFile(const char* path) {
+    for (int i = 0; i < count; i++) {
+        if (strcmp(path + 1, sdfr->root->fileInfos[i].fileName) == 0) {
+            RETURN(i);
+        }
+    }
+    RETURN(-ENOENT)
+}
+
+void MyOnDiskFS::updateTime(int index, int timeIndex) {
+    //time == 0: a_time
+    //time == 1: a_time + m_time
+    //time == 2: a_time + m_time + c_time
+    time_t update = time(NULL);
+    if (timeIndex >= 0) {
+        sdfr->root->fileInfos[index].a_time = update;
+        if (timeIndex >= 1) {
+            sdfr->root->fileInfos[index].m_time = update;
+            if (timeIndex >= 2) {
+                sdfr->root->fileInfos[index].c_time = update;
+            }
+        }
+    }
+}
+
+void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
+    index = 0;
+
+    while(*fileName != '\0') {
+        fileArray[index] = *fileName;
+        fileName++;
+        index++;
+    }
+
+    fileArray[index] = '\0';
 }
 
 // TODO: [PART 2] You may add your own additional methods here!
