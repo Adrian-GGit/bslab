@@ -108,6 +108,8 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
 int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     LOGM();
 
+    //TODO test this
+
     LOGF( "\tAttributes of %s requested\n", path );
 
     // GNU's definitions of the attributes (http://www.gnu.org/software/libc/manual/html_node/Attribute-Meanings.html):
@@ -125,13 +127,15 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
     //		            refers to.
 
+    LOG("$");
     index = searchForFile(path);
-
+    LOG("H");
     statbuf->st_uid = sdfr->root->fileInfos[index].userId;
     statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
     updateTime(index, 1);
     statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
     statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
+    LOG("HI");
 
     int ret= 0;
 
@@ -139,16 +143,19 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     {
         statbuf->st_mode = S_IFDIR | 0755;
         statbuf->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
+        LOG("HIi");
         RETURN(ret);
     }
 
     if(index >= 0) {
+        LOG("HIii");
         statbuf->st_mode = sdfr->root->fileInfos[index].mode;
         statbuf->st_nlink = 1;
         statbuf->st_size = sdfr->root->fileInfos[index].dataSize;
-
+        LOG("HIiii");
         RETURN(ret);
     }
+
 
     RETURN(index);
 }
@@ -412,6 +419,8 @@ void MyOnDiskFS::setIndexes() {
 }
 
 int MyOnDiskFS::searchForFile(const char* path) {
+    LOGM();
+    LOGF("count: %d", count);
     for (int i = 0; i < count; i++) {
         if (strcmp(path + 1, sdfr->root->fileInfos[i].fileName) == 0) {
             RETURN(i);
