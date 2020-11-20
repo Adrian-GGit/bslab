@@ -356,14 +356,11 @@ void MyOnDiskFS::setIndexes() {
 // TODO: [PART 2] You may add your own additional methods here!
 
 void MyOnDiskFS::buildStructure() {
-    unsigned int numBlocks = 0;
-
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
-        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-        char buf[sdfr->getSize(i)];
-        memcpy(buf, sdfr->getStruct(i), sdfr->getSize(i));
-        writeOnDisk(sdfr->getIndex(i), buf, numBlocks, sdfr->getSize(i));;
+        char buf[s];
+        memcpy(buf, sdfr->getStruct(i), s);
+        writeOnDisk(sdfr->getIndex(i), buf, indexes[i + 1] - indexes[i], s);;
     }
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
@@ -393,26 +390,10 @@ void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned in
 
 //TODO funktioniert noch nicht ganz!!! -> Debug
 void MyOnDiskFS::readContainer() {
-    unsigned int numBlocks = 0;
-    unsigned int currentIndex = 0;
-    unsigned int blockNumber = 0;
-
-    /*for (int i = 0; i < NUM_SDFR; i++) {
-        if (i != NUM_SDFR - 1) {
-            size_t s = sdfr->getSize(i);
-            numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-            char puffer[s];
-            readOnDisk(blockNumber, puffer, numBlocks, s);
-            memcpy(sdfr->getStruct(i), puffer, s);
-        }
-        currentIndex = sdfr->getIndex(i);
-        blockNumber = currentIndex + numBlocks;
-    }*/
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
-        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
         char puffer[s];
-        readOnDisk(indexes[i], puffer, numBlocks, s);
+        readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s);
         memcpy(sdfr->getStruct(i), puffer, s);
     }
 
