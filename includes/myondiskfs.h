@@ -18,6 +18,8 @@ public:
 
     // TODO: [PART 1] Add attributes of your file system here
 
+    unsigned int indexes[NUM_SDFR];
+
     MyOnDiskFS();
     ~MyOnDiskFS();
 
@@ -46,6 +48,10 @@ public:
     void writeOnDisk(unsigned int blockNumber, char* buf, unsigned int numBlocks, size_t size);
     void readContainer();
     void readOnDisk(unsigned int blockNumber, char *puf, unsigned int numBlocks, size_t size);
+    void setIndexes();
+    int searchForFile(const char *path);
+    void updateTime(int index, int timeIndex);
+    void copyFileNameIntoArray(const char *fileName, char *fileArray);
 };
 
 #endif //MYFS_MYONDISKFS_H

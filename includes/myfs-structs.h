@@ -28,10 +28,11 @@
 
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
-    size_t dataSize = 0;            //beschreibt bei ondisk wo Bytes im Block aufhören
+    size_t dataSize = 0;
+    size_t sizeEndBlock = 0;//beschreibt bei ondisk wo Bytes im Block aufhören
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
     unsigned int end;               //beschreibt bei ondisk bei welchem Byte im letzten Block Datei endet
-    //unsigned int endBlock;          //beschreibt bei welchem Block Datei endet wird evtl durch 0xFFFFF ersetzt
+    //unsigned int endBlock;          //beschreibt bei welchem Block Datei endet wird evtl durch 0xFFFFF in FAT ersetzt
     unsigned int userId;
     unsigned int groupId;
 
@@ -45,6 +46,7 @@ struct MyFsFileInfo {
 };
 
 struct SDFR {
+
     struct mySuperblock {
         unsigned int mySuperblockindex = 0;     //start von Superblock
         unsigned int myDMAPindex;           //start von DMAP
@@ -72,16 +74,12 @@ struct SDFR {
     size_t getSize(int i) {
         switch (i) {
             case 0:
-                //printf("Size superblock: %d", sizeof(mySuperblock));
                 return sizeof(mySuperblock);
             case 1:
-                //printf("Size dmap: %d", sizeof(myDMAP));
                 return sizeof(myDMAP);
             case 2:
-                //printf("Size fat: %d", sizeof(myFAT));
                 return sizeof(myFAT);
             case 3:
-                //printf("Size root: %d", sizeof(myRoot));
                 return sizeof(myRoot);
         }
     }

@@ -90,9 +90,13 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
 int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
-
-    RETURN(0);
+    index = searchForFile(path);
+    if(index >= 0) {
+        copyFileNameIntoArray(newpath + 1, sdfr->root->fileInfos[index].fileName);
+        updateTime(index, 1);
+        RETURN(0);
+    }
+    RETURN(index);
 }
 
 /// @brief Get file meta data.
@@ -104,9 +108,56 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
 int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    //TODO test this
 
-    RETURN(0);
+    LOGF( "\tAttributes of %s requested\n", path );
+
+    // GNU's definitions of the attributes (http://www.gnu.org/software/libc/manual/html_node/Attribute-Meanings.html):
+    // 		st_uid: 	The user ID of the file’s owner.
+    //		st_gid: 	The group ID of the file.
+    //		st_atime: 	This is the last access time for the file.
+    //		st_mtime: 	This is the time of the last modification to the contents of the file.
+    //		st_mode: 	Specifies the mode of the file. This includes file type information (see Testing File Type) and
+    //		            the file permission bits (see Permission Bits).
+    //		st_nlink: 	The number of hard links to the file. This count keeps track of how many directories have
+    //	             	entries for this file. If the count is ever decremented to zero, then the file itself is
+    //	             	discarded as soon as no process still holds it open. Symbolic links are not counted in the
+    //	             	total.
+    //		st_size:	This specifies the size of a regular file in bytes. For files that are really devices this field
+    //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
+    //		            refers to.
+
+    LOG("$");
+    index = searchForFile(path);
+    LOG("H");
+    statbuf->st_uid = sdfr->root->fileInfos[index].userId;
+    statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
+    updateTime(index, 1);
+    statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
+    statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
+    LOG("HI");
+
+    int ret= 0;
+
+    if ( strcmp( path, "/" ) == 0 )
+    {
+        statbuf->st_mode = S_IFDIR | 0755;
+        statbuf->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
+        LOG("HIi");
+        RETURN(ret);
+    }
+
+    if(index >= 0) {
+        LOG("HIii");
+        statbuf->st_mode = sdfr->root->fileInfos[index].mode;
+        statbuf->st_nlink = 1;
+        statbuf->st_size = sdfr->root->fileInfos[index].dataSize;
+        LOG("HIiii");
+        RETURN(ret);
+    }
+
+
+    RETURN(index);
 }
 
 /// @brief Change file permissions.
@@ -264,9 +315,22 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
 int MyOnDiskFS::fuseReaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    //TODO test this
 
-    RETURN(0);
+    LOGF( "--> Getting The List of Files of %s\n", path );
+
+    filler( buf, ".", NULL, 0 ); // Current Directory
+    filler( buf, "..", NULL, 0 ); // Parent Directory
+
+    if ( strcmp( path, "/" ) == 0 ) // If the user is trying to show the files/directories of the root directory show the following
+    {
+        for (int i = 0; i < count; i++) {
+            filler(buf, sdfr->root->fileInfos[i].fileName, NULL, 0);
+        }
+        RETURN(0);
+    }
+
+    RETURN(-ENOENT);
 }
 
 /// Initialize a file system.
@@ -294,8 +358,11 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
         if(ret >= 0) {
             LOG("Container file does exist, reading");
 
-            // TODO: [PART 2] Read existing structures form file
+            setIndexes();
+            //read Container
             readContainer();
+            //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
+            //TODO write test to confirm that structures are build and read right
 
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
@@ -308,8 +375,11 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
                 this->blockDevice->create("/home/user/bslab/container.bin");
 
+                setIndexes();
                 //baue Struktur auf:
                 buildStructure();
+                //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
+                //TODO write test to confirm that structures are build and read right
 
             }
         }
@@ -335,26 +405,66 @@ void MyOnDiskFS::fuseDestroy() {
 
 }
 
-// TODO: [PART 2] You may add your own additional methods here!
-
-void MyOnDiskFS::buildStructure() {
-    unsigned int numBlocks = 0;
+void MyOnDiskFS::setIndexes() {
     int currentIndex = 0;
+    unsigned int numBlocks = 0;
 
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr->getIndex(i);
-        LOGF("index: %d", currentIndex + numBlocks);
         sdfr->setIndex(i, currentIndex + numBlocks);
+        indexes[i] = currentIndex + numBlocks;
         size_t s = sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
     }
+}
 
+int MyOnDiskFS::searchForFile(const char* path) {
+    LOGM();
+    LOGF("count: %d", count);
+    for (int i = 0; i < count; i++) {
+        if (strcmp(path + 1, sdfr->root->fileInfos[i].fileName) == 0) {
+            RETURN(i);
+        }
+    }
+    RETURN(-ENOENT)
+}
+
+void MyOnDiskFS::updateTime(int index, int timeIndex) {
+    //time == 0: a_time
+    //time == 1: a_time + m_time
+    //time == 2: a_time + m_time + c_time
+    time_t update = time(NULL);
+    if (timeIndex >= 0) {
+        sdfr->root->fileInfos[index].a_time = update;
+        if (timeIndex >= 1) {
+            sdfr->root->fileInfos[index].m_time = update;
+            if (timeIndex >= 2) {
+                sdfr->root->fileInfos[index].c_time = update;
+            }
+        }
+    }
+}
+
+void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
+    index = 0;
+
+    while(*fileName != '\0') {
+        fileArray[index] = *fileName;
+        fileName++;
+        index++;
+    }
+
+    fileArray[index] = '\0';
+}
+
+// TODO: [PART 2] You may add your own additional methods here!
+
+void MyOnDiskFS::buildStructure() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
-        numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-        char buf[sdfr->getSize(i)];
-        memcpy(buf, sdfr->getStruct(i), sdfr->getSize(i));
-        writeOnDisk(sdfr->getIndex(i), buf, numBlocks, sdfr->getSize(i));;
+        char buf[s];
+        memcpy(buf, sdfr->getStruct(i), s);
+        writeOnDisk(sdfr->getIndex(i), buf, indexes[i + 1] - indexes[i], s);;
     }
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
@@ -365,6 +475,7 @@ void MyOnDiskFS::buildStructure() {
 }
 
 //TODO immer wenn an einer Datei was geändert wird müssen auch die sdfr Blöcke verändert werden in der .bin -> funktion synchronize()
+//TODO anfangs sind keine Blöcke belegt -> writeondisk sollte am besten immer nächstliegenden Block nehmen -> keine eigene Funktion für building, da sdfr blöcke dann garantiert nebeneinander liegen
 
 //write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
 void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks, size_t size) {
@@ -383,21 +494,11 @@ void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned in
 
 //TODO funktioniert noch nicht ganz!!! -> Debug
 void MyOnDiskFS::readContainer() {
-    unsigned int numBlocks = 0;
-    unsigned int currentIndex = 0;
-    unsigned int blockNumber = 0;
-
-    for (int i = 0; i < NUM_SDFR; i++) {
-        if (i != NUM_SDFR - 1) {
-            size_t s = sdfr->getSize(i);
-            numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-            char puffer[s];
-            readOnDisk(blockNumber, puffer, numBlocks, s);
-            memcpy(sdfr->getStruct(i), puffer, s);
-        }
-        currentIndex = sdfr->getIndex(i);
-        LOGF("index: %d", currentIndex);
-        blockNumber = currentIndex + numBlocks;
+    for (int i = 0; i < NUM_SDFR - 1; i++) {
+        size_t s = sdfr->getSize(i);
+        char puffer[s];
+        readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s);
+        memcpy(sdfr->getStruct(i), puffer, s);
     }
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",

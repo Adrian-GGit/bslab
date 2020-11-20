@@ -24,6 +24,10 @@ protected:
     
 public:
     static MyFS *Instance();
+
+    int count = 0;
+    int openFiles = 0;
+    int index = -1;
     
     // TODO: [PART 2] You may add attributes of your file system here
 
