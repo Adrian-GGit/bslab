@@ -264,9 +264,20 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
 int MyOnDiskFS::fuseReaddir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    LOGF( "--> Getting The List of Files of %s\n", path );
 
-    RETURN(0);
+    filler( buf, ".", NULL, 0 ); // Current Directory
+    filler( buf, "..", NULL, 0 ); // Parent Directory
+
+    if ( strcmp( path, "/" ) == 0 ) // If the user is trying to show the files/directories of the root directory show the following
+    {
+        for (int i = 0; i < count; i++) {
+            filler(buf, sdfr->root->fileInfos[i].fileName, NULL, 0);
+        }
+        RETURN(0);
+    }
+
+    RETURN(-ENOENT);
 }
 
 /// Initialize a file system.
@@ -294,11 +305,11 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
         if(ret >= 0) {
             LOG("Container file does exist, reading");
 
-            // TODO: [PART 2] Read existing structures form file
             setIndexes();
             //read Container
             readContainer();
             //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
+            //TODO write test to confirm that structures are build and read right
 
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
