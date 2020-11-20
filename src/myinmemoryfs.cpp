@@ -42,10 +42,6 @@
 /// You may add your own constructor code here.
 MyInMemoryFS::MyInMemoryFS() : MyFS() {
 
-    count = 0;
-    openFiles = 0;
-    index = -1;
-
 }
 
 /// @brief Destructor of the in-memory file system class.
