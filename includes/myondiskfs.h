@@ -52,6 +52,11 @@ public:
     int searchForFile(const char *path);
     void updateTime(int index, int timeIndex);
     void copyFileNameIntoArray(const char *fileName, char *fileArray);
+    int findNextFreeBlock(int current);
+    void fillFAT(int* blocks);
+    void fillFATWhileBuid();
+    void fillDMAP(int *blocks);
+    void fillDMAPWhileBuild(int start, int end);
 };
 
 #endif //MYFS_MYONDISKFS_H

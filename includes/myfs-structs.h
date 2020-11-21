@@ -62,7 +62,7 @@ struct SDFR {
     myDMAP* dmap = new myDMAP;
 
     struct myFAT {
-        unsigned int FATTable[NUM_BLOCKS];     //kommt noch in VL
+        unsigned int FATTable[NUM_BLOCKS];     //jeweiliger Inhalt beschreibt welcher Block der nachfolgende der Datei ist (Ende wir mit 0 gekennzeichnet)
     };
     myFAT* fat = new myFAT;
 
