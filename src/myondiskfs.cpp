@@ -34,6 +34,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
     //alle Blöcke sind noch frei
     for (int i = 0; i < NUM_BLOCKS; i++) {
         sdfr->dmap->freeBlocks[i] = '0';
+        sdfr->fat->FATTable[i] = 0;
     }
 
 }
@@ -64,12 +65,11 @@ MyOnDiskFS::~MyOnDiskFS() {
 /// \param [in] dev Can be ignored.
 /// \return 0 on success, -ERRNO on failure.
 int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
-    // TODO: [PART 2] Implement this!
     LOGM();
 
     LOGF("path: %s | count: %d | numdirs: %d\n", path, count, NUM_DIR_ENTRIES);
 
-    int nextFreeBlock = findNextFreeBlock();
+    int nextFreeBlock = findNextFreeBlock();    //TODO FEHLERHAFT!!! + unlink im debugger
 
     if (count < NUM_DIR_ENTRIES && nextFreeBlock > 0) {
         index = searchForFile(path);
@@ -90,7 +90,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->startBlock = nextFreeBlock;
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
-        sdfr->fat->FATTable[nextFreeBlock] = 0;
+        sdfr->fat->FATTable[nextFreeBlock] = 0; //eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
 
         synchronize();
 
@@ -110,9 +110,34 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 int MyOnDiskFS::fuseUnlink(const char *path) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    index = searchForFile(path);
+    LOGF("index: %d", index);
+    int numBlocks = 1;
 
-    RETURN(0);
+    if (index >= 0) {
+        MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
+        size_t s = file->dataSize;
+        if (s != 0)
+            numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+        int blocks[numBlocks];
+        int currentBlock = file->startBlock;
+        for (int i = 0; i < numBlocks; i++) {
+            blocks[i] = currentBlock;
+            currentBlock = sdfr->fat->FATTable[currentBlock];
+        }
+        //reset dmap and fat
+        fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]), false);
+        //reset element in root and fill gap
+        //starting from position where file to delete is to the last file (count - 1 -> < count)
+        for (int i = index; i < count; i++) {
+            sdfr->root->fileInfos[i] = sdfr->root->fileInfos[i + 1];
+        }
+
+        count--;
+        RETURN(0);
+    }
+
+    RETURN(-ENOENT);
 }
 
 /// @brief Rename a file.
@@ -164,15 +189,12 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		            isn’t usually meaningful. For symbolic links this specifies the length of the file name the link
     //		            refers to.
 
-    LOG("$");
     index = searchForFile(path);
-    LOG("H");
     statbuf->st_uid = sdfr->root->fileInfos[index].userId;
     statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
     updateTime(index, 1);
     statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
     statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
-    LOG("HI");
 
     int ret= 0;
 
@@ -180,16 +202,13 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     {
         statbuf->st_mode = S_IFDIR | 0755;
         statbuf->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
-        LOG("HIi");
         RETURN(ret);
     }
 
     if(index >= 0) {
-        LOG("HIii");
         statbuf->st_mode = sdfr->root->fileInfos[index].mode;
         statbuf->st_nlink = 1;
         statbuf->st_size = sdfr->root->fileInfos[index].dataSize;
-        LOG("HIiii");
         RETURN(ret);
     }
 
@@ -499,7 +518,7 @@ int MyOnDiskFS::findNextFreeBlock(int lastBlock) {
         if (lastBlock >= NUM_BLOCKS) {
             RETURN(-ENOMEM);
         } else {
-            if (sdfr->dmap->freeBlocks[lastBlock] == 0) {
+            if (sdfr->dmap->freeBlocks[lastBlock] == '0') {
                 return lastBlock;
             } else {
                 lastBlock++;
@@ -521,24 +540,27 @@ void MyOnDiskFS::fillFatAndDmapWhileBuild() {
 void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     for (int i = 0; i < sizeArray; i++) {
         if (i == sizeArray - 1) {
-            if (fill) {
                 sdfr->fat->FATTable[blocks[sizeArray - 1]] = 0;
+            if (fill) {
                 sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '1';
+            } else{
+                sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '0';
             }
-            //TODO zB bei unlink muss alles wieder gelöscht werden oder wenn bei write was gelöscht wird
         } else{
             if (fill) {
                 sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
                 sdfr->dmap->freeBlocks[blocks[i]] = '1';
+            } else{
+                sdfr->fat->FATTable[blocks[i]] = 0;
+                sdfr->dmap->freeBlocks[blocks[i]] = '0';
             }
-            //TODO zB bei unlink muss alles wieder gelöscht werden oder wenn bei write was gelöscht wird
         }
     }
 }
 
 void MyOnDiskFS::synchronize() {
-    //TODO im prinzip wie read funktion evtl kann auch einfach read funktion komplett übernommen werden
-    //-> alle sdfr blöcke müssen aktualisiert werden
+    //alle sdfr blöcke werden aktualisiert
+    buildStructure();
 }
 
 // TODO: [PART 2] You may add your own additional methods here!
