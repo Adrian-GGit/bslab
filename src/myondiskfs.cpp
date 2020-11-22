@@ -270,8 +270,16 @@ int MyOnDiskFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
 int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    index = searchForFile(path);
+    if (openFiles >= NUM_OPEN_FILES || index < 0) {
+        RETURN(-ENOENT);
+    }
 
+    fileInfo->fh = ;
+    //TODO video über "Hinweise zur Pufferung"
+
+    openFiles++;
+    updateTime(index, 0);
     RETURN(0);
 }
 
