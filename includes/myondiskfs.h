@@ -53,10 +53,8 @@ public:
     void updateTime(int index, int timeIndex);
     void copyFileNameIntoArray(const char *fileName, char *fileArray);
     int findNextFreeBlock(int current);
-    void fillFAT(int* blocks);
-    void fillFATWhileBuid();
-    void fillDMAP(int *blocks);
-    void fillDMAPWhileBuild(int start, int end);
+    void fillFatAndDmap(int blocks[], size_t size);
+    void fillFatAndDmapWhileBuid();
 };
 
 #endif //MYFS_MYONDISKFS_H

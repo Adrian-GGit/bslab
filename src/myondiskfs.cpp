@@ -384,8 +384,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
                 setIndexes();
                 //baue Struktur auf:
-                fillDMAPWhileBuild(sdfr->getIndex(0), sdfr->getIndex(NUM_SDFR - 1) - 1);
-                fillFATWhileBuid();
+                fillFatAndDmapWhileBuid();
                 buildStructure();
                 //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
                 //TODO write test to confirm that structures are build and read right
@@ -479,33 +478,35 @@ int MyOnDiskFS::findNextFreeBlock(int current = -1) {
     }
 }
 
-void MyOnDiskFS::fillDMAPWhileBuild(int start, int end) {
-    for (int i = start; i <= end; i++) {
-        sdfr->dmap->freeBlocks[i] = '1';
-    }
-}
-
-void MyOnDiskFS::fillDMAP(int* blocks) {
-    size_t sizeArray = sizeof(blocks) / sizeof(blocks[0]);
-    for (int i = 0; i < sizeArray; i++) {
-        sdfr->dmap->freeBlocks[blocks[i]] = '1';
-    }
-}
-
-void MyOnDiskFS::fillFATWhileBuid() {
-    for (int i = 0; i < NUM_BLOCKS - 1; i++) {
+void MyOnDiskFS::fillFatAndDmapWhileBuid() {
+    for (int i = 0; i < NUM_SDFR - 1; i++) {
+        //LOGF("index i: %d | index i + 1: %d", indexes[i], indexes[i + 1]);
         int blocks[indexes[i + 1] - indexes[i]];
-        fillFAT(blocks);
+        //LOGF("sizearray: %d", sizeof(blocks) / sizeof(blocks[0]));
+        for (int j = indexes[i]; j < indexes[i + 1]; j++) {
+            blocks[j - indexes[i]] = j;
+            //LOGF("block %d[%d] = %d", i, j - indexes[i], j);
+        }
+        //LOGF("sizearray: %d", sizeof(blocks) / sizeof(blocks[0]));
+        fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]));
     }
 }
 
-void MyOnDiskFS::fillFAT(int* blocks) {
-    size_t sizeArray = sizeof(blocks) / sizeof(blocks[0]);
-    for (int i = 0; i < sizeArray; i++) {
-        if (i == sizeArray - 1) {
-            sdfr->fat->FATTable[blocks[sizeArray - 1]] = 0;
+void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t size) {
+    //LOG("------------------------------------");
+    //LOGF("size: %d | size - 1: %d", size, size - 1);
+    for (int i = 0; i < size; i++) {
+        if (i == size - 1) {
+            //LOGF("blocksfat[%d]=%d", blocks[size - 1], 0);
+            //LOGF("blocksdmap[%d]='1'", blocks[size - 1]);
+            sdfr->fat->FATTable[blocks[size - 1]] = 0;
+            sdfr->dmap->freeBlocks[blocks[size - 1]] = '1';
+        } else{
+            //LOGF("blocksfat[%d]=%d", blocks[i], blocks[i + 1]);
+            //LOGF("blocksdmap[%d]='1'", blocks[i]);
+            sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
+            sdfr->dmap->freeBlocks[blocks[i]] = '1';
         }
-        sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
     }
 }
 
@@ -527,7 +528,7 @@ void MyOnDiskFS::buildStructure() {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
-        LOGF("fat: %d: %c", i, sdfr->fat->FATTable[i]);
+        LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
     }
 }
 
@@ -566,7 +567,7 @@ void MyOnDiskFS::readContainer() {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
-        LOGF("fat: %d: %c", i, sdfr->fat->FATTable[i]);
+        LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
     }
 }
 
