@@ -129,6 +129,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]), false);
         //reset element in root and fill gap
         //starting from position where file to delete is to the last file (count - 1 -> < count)
+        //bedenke hinterstes Element wird doppelt vorhanden sein -> sollte aber nicht gefunden werden können da searchForFile nur bis count nachguckt
         for (int i = index; i < count; i++) {
             sdfr->root->fileInfos[i] = sdfr->root->fileInfos[i + 1];
         }
@@ -226,9 +227,14 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
 int MyOnDiskFS::fuseChmod(const char *path, mode_t mode) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    index = searchForFile(path);
+    if(index >= 0) {
+        sdfr->root->fileInfos[index].mode = mode;
+        updateTime(index, 1);
+        RETURN(0);
+    }
 
-    RETURN(0);
+    RETURN(index);
 }
 
 /// @brief Change the owner of a file.
@@ -242,9 +248,15 @@ int MyOnDiskFS::fuseChmod(const char *path, mode_t mode) {
 int MyOnDiskFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    index = searchForFile(path);
+    if(index >= 0) {
+        sdfr->root->fileInfos[index].userId = uid;
+        sdfr->root->fileInfos[index].groupId = gid;
+        updateTime(index, 1);
+        RETURN(0);
+    }
 
-    RETURN(0);
+    RETURN(index);
 }
 
 /// @brief Open a file.
@@ -564,6 +576,8 @@ void MyOnDiskFS::synchronize() {
 }
 
 // TODO: [PART 2] You may add your own additional methods here!
+
+//TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs
 
 void MyOnDiskFS::buildStructure() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
