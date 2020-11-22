@@ -64,11 +64,41 @@ MyOnDiskFS::~MyOnDiskFS() {
 /// \param [in] dev Can be ignored.
 /// \return 0 on success, -ERRNO on failure.
 int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
+    // TODO: [PART 2] Implement this!
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    LOGF("path: %s | count: %d | numdirs: %d\n", path, count, NUM_DIR_ENTRIES);
 
-    RETURN(0);
+    int nextFreeBlock = findNextFreeBlock();
+
+    if (count < NUM_DIR_ENTRIES && nextFreeBlock > 0) {
+        index = searchForFile(path);
+        if(index >= 0) {
+            RETURN(-EEXIST)
+        }
+        if (strlen(path + 1) > NAME_LENGTH) {
+            RETURN(-ENAMETOOLONG)
+        }
+        MyFsFileInfo* newData = &(sdfr->root->fileInfos[count]);
+        copyFileNameIntoArray(path + 1, newData->fileName);
+        newData->mode = mode;  //root: read,write,execute; group: read,execute; others:read,execute -> to give everyone all perms: 0777
+        newData->a_time = time(NULL);    //current time
+        newData->m_time = time(NULL);
+        newData->c_time = time(NULL);
+        newData->userId = getuid();
+        newData->groupId = getgid();
+        newData->startBlock = nextFreeBlock;
+
+        sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
+        sdfr->fat->FATTable[nextFreeBlock] = 0;
+
+        synchronize();
+
+        count += 1;
+        RETURN(0);
+    }
+
+    RETURN(-ENOMEM);
 }
 
 /// @brief Delete a file.
@@ -384,7 +414,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
                 setIndexes();
                 //baue Struktur auf:
-                fillFatAndDmapWhileBuid();
+                fillFatAndDmapWhileBuild();
                 buildStructure();
                 //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
                 //TODO write test to confirm that structures are build and read right
@@ -462,52 +492,53 @@ void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     fileArray[index] = '\0';
 }
 
-int MyOnDiskFS::findNextFreeBlock(int current = -1) {
-    current++; //current as parameter is the current block which is definitely not free
+int MyOnDiskFS::findNextFreeBlock(int lastBlock) {
+    lastBlock++; //current as parameter is the current block which is definitely not free
 
     while(true) {
-        if (current >= NUM_BLOCKS) {
+        if (lastBlock >= NUM_BLOCKS) {
             RETURN(-ENOMEM);
         } else {
-            if (sdfr->dmap->freeBlocks[current] == 0) {
-                return current;
+            if (sdfr->dmap->freeBlocks[lastBlock] == 0) {
+                return lastBlock;
             } else {
-                current++;
+                lastBlock++;
             }
         }
     }
 }
 
-void MyOnDiskFS::fillFatAndDmapWhileBuid() {
+void MyOnDiskFS::fillFatAndDmapWhileBuild() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
-        //LOGF("index i: %d | index i + 1: %d", indexes[i], indexes[i + 1]);
         int blocks[indexes[i + 1] - indexes[i]];
-        //LOGF("sizearray: %d", sizeof(blocks) / sizeof(blocks[0]));
         for (int j = indexes[i]; j < indexes[i + 1]; j++) {
             blocks[j - indexes[i]] = j;
-            //LOGF("block %d[%d] = %d", i, j - indexes[i], j);
         }
-        //LOGF("sizearray: %d", sizeof(blocks) / sizeof(blocks[0]));
-        fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]));
+        fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]), true);
     }
 }
 
-void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t size) {
-    //LOG("------------------------------------");
-    //LOGF("size: %d | size - 1: %d", size, size - 1);
-    for (int i = 0; i < size; i++) {
-        if (i == size - 1) {
-            //LOGF("blocksfat[%d]=%d", blocks[size - 1], 0);
-            //LOGF("blocksdmap[%d]='1'", blocks[size - 1]);
-            sdfr->fat->FATTable[blocks[size - 1]] = 0;
-            sdfr->dmap->freeBlocks[blocks[size - 1]] = '1';
+void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
+    for (int i = 0; i < sizeArray; i++) {
+        if (i == sizeArray - 1) {
+            if (fill) {
+                sdfr->fat->FATTable[blocks[sizeArray - 1]] = 0;
+                sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '1';
+            }
+            //TODO zB bei unlink muss alles wieder gelöscht werden oder wenn bei write was gelöscht wird
         } else{
-            //LOGF("blocksfat[%d]=%d", blocks[i], blocks[i + 1]);
-            //LOGF("blocksdmap[%d]='1'", blocks[i]);
-            sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
-            sdfr->dmap->freeBlocks[blocks[i]] = '1';
+            if (fill) {
+                sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
+                sdfr->dmap->freeBlocks[blocks[i]] = '1';
+            }
+            //TODO zB bei unlink muss alles wieder gelöscht werden oder wenn bei write was gelöscht wird
         }
     }
+}
+
+void MyOnDiskFS::synchronize() {
+    //TODO im prinzip wie read funktion evtl kann auch einfach read funktion komplett übernommen werden
+    //-> alle sdfr blöcke müssen aktualisiert werden
 }
 
 // TODO: [PART 2] You may add your own additional methods here!
@@ -524,12 +555,12 @@ void MyOnDiskFS::buildStructure() {
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
     LOGF("len dmap: %d | len fat: %d | len root: %d",
          sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
-    for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
+    /*for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
-    }
+    }*/
 }
 
 //TODO immer wenn an einer Datei was geändert wird müssen auch die sdfr Blöcke verändert werden in der .bin -> funktion synchronize()
@@ -563,12 +594,12 @@ void MyOnDiskFS::readContainer() {
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
     LOGF("len dmap: %d | len fat: %d | len root: %d",
          sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
-    for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
+    /*for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
-    }
+    }*/
 }
 
 //TODO evtl sogar write und read zusammen packen zu einer funktion mit unterscheidung write oder read

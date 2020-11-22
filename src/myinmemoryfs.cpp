@@ -85,11 +85,10 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData.groupId = getgid();
         myFiles[count] = newData;
         count += 1;
-    } else{
-        RETURN(-ENOMEM);
+        RETURN(0);
     }
 
-    RETURN(0);
+    RETURN(-ENOMEM);
 }
 
 /// @brief Delete a file.

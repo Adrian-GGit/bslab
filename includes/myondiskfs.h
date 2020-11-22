@@ -52,9 +52,10 @@ public:
     int searchForFile(const char *path);
     void updateTime(int index, int timeIndex);
     void copyFileNameIntoArray(const char *fileName, char *fileArray);
-    int findNextFreeBlock(int current);
-    void fillFatAndDmap(int blocks[], size_t size);
-    void fillFatAndDmapWhileBuid();
+    int findNextFreeBlock(int lastBlock = -1);
+    void fillFatAndDmap(int blocks[], size_t sizeArray, bool fill);
+    void fillFatAndDmapWhileBuild();
+    void synchronize();
 };
 
 #endif //MYFS_MYONDISKFS_H
