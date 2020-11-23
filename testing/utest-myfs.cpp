@@ -138,3 +138,42 @@ TEST_CASE("T-ut3", "[Part_1]") {
     delete [] r;
     delete [] w;
 }
+
+TEST_CASE("T-ut4", "[Part_1]") {
+    printf("Testcase unittest4: Read in middle of file\n");
+
+    const char *buf1= "abcdexyz";
+    char *buf2= new char[strlen(buf1) / 2];
+
+    int fd;
+    ssize_t b;
+
+    // remove file (just to be sure)
+    unlink(FILENAME);
+
+    // Create file
+    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+
+    // Write to the file
+    REQUIRE(write(fd, buf1, strlen(buf1)) == strlen(buf1));
+
+    // Close file
+    REQUIRE(close(fd) >= 0);
+
+    // Open file again
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+
+    // Read from the file
+    REQUIRE(read(fd, buf2, strlen(buf1) / 2) == strlen(buf1) / 2);
+    REQUIRE(memcmp(buf1, buf2, strlen(buf1) / 2) == 0);
+
+    // Close file
+    REQUIRE(close(fd) >= 0);
+
+    // remove file
+    REQUIRE(unlink(FILENAME) >= 0);
+
+    delete [] buf2;
+}

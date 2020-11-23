@@ -280,8 +280,10 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
     index = searchForFile(path);
     if(index >= 0) {
-        unsigned long toRead = size < myFiles[index].dataSize - offset ? size : myFiles[index].dataSize - offset;   //if you want to read in middle of the file or if you want
+        unsigned long toRead = size < myFiles[index].dataSize - offset ? size : myFiles[index].dataSize - offset;
+        LOGF("size: %d | toRead: %d | offset: %d", size, toRead, offset);
         memcpy( buf, myFiles[index].data + offset, toRead);
+        LOGF("buf: %s", buf);
         updateTime(index, 0);
         RETURN(toRead);
     }

@@ -303,9 +303,32 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
+    index = searchForFile(path);
+    if(index >= 0) {
+        unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;
+        unsigned int numBlocksForward = offset / BLOCK_SIZE;
+        unsigned int startInFirstBlock = offset % BLOCK_SIZE;
 
-    RETURN(0);
+        unsigned int firstByte = offset;
+        unsigned int lastByte = offset + size;
+
+        unsigned int numBlocks = ; //TODO
+        unsigned int endInLastBlock = lastByte % BLOCK_SIZE;
+
+        //offset % BLOCK_SIZE ist 0 und size % BLOCK_SIZE ist 0
+        //offset % BLOCK_SIZE ist 0 und size % BLOCK_SIZE ist nicht 0
+        //offset % BLOCK_SIZE ist nicht 0 und size % BLOCK_SIZE ist 0
+        //offset % BLOCK_SIZE ist nicht 0 und size % BLOCK_SIZE ist nicht 0
+
+        startingBlock = getStartingBlock(startingBlock, numBlocksForward);
+        readOnDisk(startingBlock, buf, numBlocks, size, false);
+        //TODO buf muss noch verändert werden, dass offset beachtet wird und das was im letzten Block zu viel gelesen wurde
+        updateTime(index, 0);
+        //TODO setze buffer auf letzten gelesenen Block
+        RETURN(size);
+    }
+    return index;
 }
 
 /// @brief Write to a file.
@@ -590,6 +613,13 @@ void MyOnDiskFS::synchronize() {
     buildStructure();
 }
 
+unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned int numBlocksForward) {
+    for (int i = 0; i < numBlocksForward; i++) {
+        startingBlock = sdfr->fat->FATTable[startingBlock];
+    }
+    return startingBlock;
+}
+
 // TODO: [PART 2] You may add your own additional methods here!
 
 //TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs
@@ -638,7 +668,7 @@ void MyOnDiskFS::readContainer() {
         size_t s = sdfr->getSize(i);
         char puffer[s];
         //LOGF("indexes[%d]: %d", i, indexes[i]);
-        readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s);
+        readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s, true);
         memcpy(sdfr->getStruct(i), puffer, s);
     }
 
@@ -655,27 +685,29 @@ void MyOnDiskFS::readContainer() {
 }
 
 //TODO evtl sogar write und read zusammen packen zu einer funktion mit unterscheidung write oder read
-void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int numBlocks, size_t size) {
+void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int numBlocks, size_t size, bool building) {
     char buf[BLOCK_SIZE];
     size_t currentSize;
     unsigned int counter = 0;
 
-    do {
-        currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
-        blockDevice->read(sdfr->fat->FATTable[startBlock], buf);
-        memcpy(puf + counter, buf, currentSize);
-        //LOGF("startBlock: %d | sdfr->fat->FATTable[startBlock]: %d", startBlock, sdfr->fat->FATTable[startBlock]);
-        startBlock = sdfr->fat->FATTable[startBlock];
-        counter += BLOCK_SIZE;
-    } while(sdfr->fat->FATTable[startBlock] != 0);
-
-    /*for (int i = 0; i < numBlocks; i++) {
-        currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
-        blockDevice->read(blockNumber, buf);
-        memcpy(puf + counter, buf, currentSize);
-        blockNumber++;
-        counter += BLOCK_SIZE;
-    }*/
+    if (!building) {
+        do {
+            currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+            blockDevice->read(sdfr->fat->FATTable[startBlock], buf);
+            memcpy(puf + counter, buf, currentSize);
+            //LOGF("startBlock: %d | sdfr->fat->FATTable[startBlock]: %d", startBlock, sdfr->fat->FATTable[startBlock]);
+            startBlock = sdfr->fat->FATTable[startBlock];
+            counter += BLOCK_SIZE;
+        } while(sdfr->fat->FATTable[startBlock] != 0);
+    } else{
+        for (int i = 0; i < numBlocks; i++) {
+            currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+            blockDevice->read(startBlock, buf);
+            memcpy(puf + counter, buf, currentSize);
+            startBlock++;
+            counter += BLOCK_SIZE;
+        }
+    }
 }
 
 
