@@ -31,7 +31,7 @@ public:
     
     // TODO: [PART 2] You may add attributes of your file system here
 
-    SDFR* sdfr = new SDFR;
+    SDFR* sdfr;
 
     MyFS();
     ~MyFS();

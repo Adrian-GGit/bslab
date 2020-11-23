@@ -29,10 +29,8 @@
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
     size_t dataSize = 0;
-    size_t sizeEndBlock = 0;//beschreibt bei ondisk wo Bytes im Block aufhören
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
-    unsigned int end;               //beschreibt bei ondisk bei welchem Byte im letzten Block Datei endet
-    //unsigned int endBlock;          //beschreibt bei welchem Block Datei endet wird evtl durch 0xFFFFF in FAT ersetzt
+    unsigned int byteEndBlock = 0;               //beschreibt bei ondisk bei welchem Byte im letzten Block Datei endet
     unsigned int userId;
     unsigned int groupId;
 
@@ -62,7 +60,7 @@ struct SDFR {
     myDMAP* dmap = new myDMAP;
 
     struct myFAT {
-        unsigned int FATTable[NUM_BLOCKS];     //kommt noch in VL
+        unsigned int FATTable[NUM_BLOCKS];     //jeweiliger Inhalt beschreibt welcher Block der nachfolgende der Datei ist (Ende wir mit 0 gekennzeichnet)
     };
     myFAT* fat = new myFAT;
 
