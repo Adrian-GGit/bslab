@@ -606,12 +606,12 @@ void MyOnDiskFS::buildStructure() {
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
     LOGF("len dmap: %d | len fat: %d | len root: %d",
          sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
-    /*for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
+    for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
-    }*/
+    }
 }
 
 //TODO immer wenn an einer Datei was geändert wird müssen auch die sdfr Blöcke verändert werden in der .bin -> funktion synchronize()
@@ -637,6 +637,7 @@ void MyOnDiskFS::readContainer() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
         char puffer[s];
+        //LOGF("indexes[%d]: %d", i, indexes[i]);
         readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s);
         memcpy(sdfr->getStruct(i), puffer, s);
     }
@@ -645,27 +646,36 @@ void MyOnDiskFS::readContainer() {
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
     LOGF("len dmap: %d | len fat: %d | len root: %d",
          sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
-    /*for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
+    for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
-    }*/
+    }
 }
 
 //TODO evtl sogar write und read zusammen packen zu einer funktion mit unterscheidung write oder read
-void MyOnDiskFS::readOnDisk(unsigned int blockNumber, char* puf, unsigned int numBlocks, size_t size) {
+void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int numBlocks, size_t size) {
     char buf[BLOCK_SIZE];
     size_t currentSize;
     unsigned int counter = 0;
 
-    for (int i = 0; i < numBlocks; i++) {
+    do {
+        currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+        blockDevice->read(sdfr->fat->FATTable[startBlock], buf);
+        memcpy(puf + counter, buf, currentSize);
+        //LOGF("startBlock: %d | sdfr->fat->FATTable[startBlock]: %d", startBlock, sdfr->fat->FATTable[startBlock]);
+        startBlock = sdfr->fat->FATTable[startBlock];
+        counter += BLOCK_SIZE;
+    } while(sdfr->fat->FATTable[startBlock] != 0);
+
+    /*for (int i = 0; i < numBlocks; i++) {
         currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
         blockDevice->read(blockNumber, buf);
         memcpy(puf + counter, buf, currentSize);
         blockNumber++;
         counter += BLOCK_SIZE;
-    }
+    }*/
 }
 
 
