@@ -275,8 +275,8 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
         RETURN(-ENOENT);
     }
 
-    fileInfo->fh = ;
-    //TODO video über "Hinweise zur Pufferung"
+    puffer = new char[BLOCK_SIZE];
+    fileInfo->fh = -1;  //nothing relevant in the puffer ->
 
     openFiles++;
     updateTime(index, 0);
@@ -339,9 +339,16 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
 int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    index = searchForFile(path);
+    if (index >= 0) {
+        delete[] puffer;
+        fileInfo->fh = -1;
+        openFiles--;
+        updateTime(index, 0);
+        RETURN(0);
+    }
 
-    RETURN(0);
+    RETURN(index);
 }
 
 /// @brief Truncate a file.
