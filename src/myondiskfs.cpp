@@ -468,9 +468,6 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
             setIndexes();
             //read Container
             readContainer();
-            //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
-            //TODO write test to confirm that structures are build and read right
-
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
 
@@ -486,9 +483,6 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
                 //baue Struktur auf:
                 fillFatAndDmapWhileBuild();
                 buildStructure();
-                //TODO belege alle Blöcke in DMAP bis dataindex (evtl in FAT noch was rein dass es konsistent ist)
-                //TODO write test to confirm that structures are build and read right
-
             }
         }
 
@@ -690,18 +684,7 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
     char buf[BLOCK_SIZE];
     size_t currentSize;
     unsigned int counter = 0;
-    int last = EOF;
 
-    /*if (!building) {
-        do {
-            currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
-            blockDevice->read(sdfr->fat->FATTable[startBlock], buf);
-            memcpy(puf + counter, buf, currentSize);
-            //LOGF("startBlock: %d | sdfr->fat->FATTable[startBlock]: %d", startBlock, sdfr->fat->FATTable[startBlock]);
-            startBlock = sdfr->fat->FATTable[startBlock];
-            counter += BLOCK_SIZE;
-        } while(sdfr->fat->FATTable[startBlock] != last);*/
-   // } else{
    for (int i = 0; i < numBlocks; i++) {
        if (!building) {
            if (startBlock == fileInfo->fh) {
@@ -721,7 +704,6 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
 
        counter += BLOCK_SIZE;
    }
-    //}
 }
 
 
