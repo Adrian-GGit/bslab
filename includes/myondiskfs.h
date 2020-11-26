@@ -48,7 +48,7 @@ public:
     void buildStructure();
     void writeOnDisk(unsigned int blockNumber, char* buf, unsigned int numBlocks, size_t size);
     void readContainer();
-    void readOnDisk(unsigned int startingBlock, char *puf, unsigned int numBlocks, size_t size, bool building);
+    void readOnDisk(unsigned int startingBlock, char *puf, unsigned int numBlocks, size_t size, bool building, struct fuse_file_info *fileInfo);
     void setIndexes();
     int searchForFile(const char *path);
     void updateTime(int index, int timeIndex);
