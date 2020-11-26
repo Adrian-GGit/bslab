@@ -303,6 +303,8 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
+    //TODO test this!
+
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
     index = searchForFile(path);
     if(index >= 0) {
@@ -475,8 +477,6 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
             if (ret >= 0) {
 
-                // TODO: [PART 2] Create empty structures in file
-
                 this->blockDevice->create("/home/user/bslab/container.bin");
 
                 setIndexes();
@@ -641,7 +641,6 @@ void MyOnDiskFS::buildStructure() {
 
 //TODO immer wenn an einer Datei was geändert wird müssen auch die sdfr Blöcke verändert werden in der .bin -> funktion synchronize()
 //TODO anfangs sind keine Blöcke belegt -> writeondisk sollte am besten immer nächstliegenden Block nehmen -> keine eigene Funktion für building, da sdfr blöcke dann garantiert nebeneinander liegen
-
 //write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
 void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks, size_t size) {
     char buf[BLOCK_SIZE];
@@ -657,7 +656,6 @@ void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned in
     }
 }
 
-//TODO funktioniert noch nicht ganz!!! -> Debug
 void MyOnDiskFS::readContainer() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
