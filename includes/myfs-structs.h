@@ -15,6 +15,7 @@
 #define NUM_OPEN_FILES 64
 
 #define NUM_BLOCKS 100000       //TODO prüfe ob 100k reichen für 20MB data + SDFR Blöcke (Superblock, DMAP, FAT, Root)
+#define EOF 100001;         //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
 
 #define NUM_SDFR 5
 

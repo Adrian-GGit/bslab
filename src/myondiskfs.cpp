@@ -34,7 +34,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
     //alle Blöcke sind noch frei
     for (int i = 0; i < NUM_BLOCKS; i++) {
         sdfr->dmap->freeBlocks[i] = '0';
-        sdfr->fat->FATTable[i] = 0;
+        sdfr->fat->FATTable[i] = EOF;
     }
 
 }
@@ -90,7 +90,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->startBlock = nextFreeBlock;
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
-        sdfr->fat->FATTable[nextFreeBlock] = 0; //eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
+        sdfr->fat->FATTable[nextFreeBlock] = EOF; //eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
 
         synchronize();
 
@@ -313,7 +313,7 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         unsigned int firstByte = offset;
         unsigned int lastByte = offset + size;
 
-        unsigned int numBlocks = ; //TODO
+        unsigned int numBlocks = 0; //TODO
         unsigned int endInLastBlock = lastByte % BLOCK_SIZE;
 
         //offset % BLOCK_SIZE ist 0 und size % BLOCK_SIZE ist 0
@@ -590,7 +590,7 @@ void MyOnDiskFS::fillFatAndDmapWhileBuild() {
 void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     for (int i = 0; i < sizeArray; i++) {
         if (i == sizeArray - 1) {
-                sdfr->fat->FATTable[blocks[sizeArray - 1]] = 0;
+                sdfr->fat->FATTable[blocks[sizeArray - 1]] = EOF;
             if (fill) {
                 sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '1';
             } else{
@@ -601,7 +601,7 @@ void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
                 sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
                 sdfr->dmap->freeBlocks[blocks[i]] = '1';
             } else{
-                sdfr->fat->FATTable[blocks[i]] = 0;
+                sdfr->fat->FATTable[blocks[i]] = EOF;
                 sdfr->dmap->freeBlocks[blocks[i]] = '0';
             }
         }
@@ -689,6 +689,7 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
     char buf[BLOCK_SIZE];
     size_t currentSize;
     unsigned int counter = 0;
+    int last = EOF;
 
     if (!building) {
         do {
@@ -698,7 +699,7 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
             //LOGF("startBlock: %d | sdfr->fat->FATTable[startBlock]: %d", startBlock, sdfr->fat->FATTable[startBlock]);
             startBlock = sdfr->fat->FATTable[startBlock];
             counter += BLOCK_SIZE;
-        } while(sdfr->fat->FATTable[startBlock] != 0);
+        } while(sdfr->fat->FATTable[startBlock] != last);
     } else{
         for (int i = 0; i < numBlocks; i++) {
             currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
