@@ -709,6 +709,7 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
                     sdfr->dmap->freeBlocks[startBlock] = '1';
                 }
             }
+            //TODO evtl statt startBlock auch über fat -> vermeiden von redundanten code
         } else{
             currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
             memcpy(buf, pufAllNew + counter, currentSize);
