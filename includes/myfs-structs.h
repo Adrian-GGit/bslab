@@ -15,7 +15,7 @@
 #define NUM_OPEN_FILES 64
 
 #define NUM_BLOCKS 100000       //TODO prüfe ob 100k reichen für 20MB data + SDFR Blöcke (Superblock, DMAP, FAT, Root)
-#define EOF 100001;         //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
+#define EOF 100001              //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
 
 #define NUM_SDFR 5
 
@@ -31,7 +31,7 @@ struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
     size_t dataSize = 0;
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
-    unsigned int byteEndBlock = 0;               //beschreibt bei ondisk bei welchem Byte im letzten Block Datei endet
+    unsigned int byteEndBlock = 0;               //TODO benötigt??!? beschreibt bei ondisk bei welchem Byte im letzten Block Datei endet
     unsigned int userId;
     unsigned int groupId;
 

@@ -9,7 +9,6 @@
 
 #undef DEBUG
 
-// TODO: Comment lines to reduce debug messages
 #define DEBUG
 #define DEBUG_METHODS
 #define DEBUG_RETURN_VALUES
@@ -34,7 +33,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
     //alle Blöcke sind noch frei
     for (int i = 0; i < NUM_BLOCKS; i++) {
         sdfr->dmap->freeBlocks[i] = '0';
-        sdfr->fat->FATTable[i] = EOF;
+        sdfr->fat->FATTable[i] = EOF;   //TODO benötigt??!
     }
 
 }
@@ -69,9 +68,9 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
     LOGF("path: %s | count: %d | numdirs: %d\n", path, count, NUM_DIR_ENTRIES);
 
-    int nextFreeBlock = findNextFreeBlock();    //TODO FEHLERHAFT!!! + unlink im debugger
+    int nextFreeBlock = findNextFreeBlock();
 
-    if (count < NUM_DIR_ENTRIES && nextFreeBlock > 0) {
+    if (count < NUM_DIR_ENTRIES && nextFreeBlock >= 0) { //>= 0 -> mem vorhanden
         index = searchForFile(path);
         if(index >= 0) {
             RETURN(-EEXIST)
@@ -90,7 +89,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->startBlock = nextFreeBlock;
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
-        sdfr->fat->FATTable[nextFreeBlock] = EOF; //eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
+        sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
 
         synchronize();
 
@@ -556,7 +555,7 @@ void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     fileArray[index] = '\0';
 }
 
-int MyOnDiskFS::findNextFreeBlock(int lastBlock) {
+int MyOnDiskFS::findNextFreeBlock(int lastBlock) {  //TODO benötigt lastBlock?!??!
     lastBlock++; //current as parameter is the current block which is definitely not free
 
     while(true) {
@@ -684,7 +683,7 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
     unsigned int counter = 0;
 
    for (int i = 0; i < numBlocks; i++) {
-       if (!building) {
+       if (!building) {     //TODO evlt mit &&
            if (startBlock == fileInfo->fh) {
                memcpy(puf + counter, puffer, BLOCK_SIZE);
            } else{
