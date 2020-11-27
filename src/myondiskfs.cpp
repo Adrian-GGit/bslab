@@ -704,6 +704,7 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
                     startBlock = sdfr->fat->FATTable[startBlock];
                 } else{
                     int temp = startBlock;
+                    //TODO falls startBlock < 0 -> nomem
                     sdfr->fat->FATTable[temp] = startBlock = findNextFreeBlock();
                     sdfr->fat->FATTable[startBlock] = EOF;
                     sdfr->dmap->freeBlocks[startBlock] = '1';
