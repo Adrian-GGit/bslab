@@ -323,11 +323,18 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         //dabei ist nur die Verschiebung in dem Block in welchem angefangen wird zu lesen zu berücksichtigen -> startInFirstBlock
         unsigned int numReadingBlocks = endInLastBlock == 0 ?
                 (startInFirstBlock + size) / BLOCK_SIZE : (startInFirstBlock + size) / BLOCK_SIZE + 1;
+        char* puf;
+        readOnDisk(startingBlock, puf, numReadingBlocks, size, false, fileInfo);
 
-        readOnDisk(startingBlock, buf, numReadingBlocks, size, false, fileInfo);
-        //TODO buf muss noch verändert werden, dass offset beachtet wird und das was im letzten Block zu viel gelesen wurde
+        //TODO test!
+        puf = puf + offset;
+        memcpy(buf, puf, size);
+
         updateTime(index, 0);
-        //TODO setze buffer auf letzten gelesenen Block
+
+        puf = puf - offset + (numReadingBlocks - 1) * BLOCK_SIZE;
+        memcpy(puffer, puf, BLOCK_SIZE);
+
         RETURN(size);
     }
     return index;
@@ -351,9 +358,45 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
 int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    //TODO unbeschriebener platz soll mit 0en aufgefüllt werden
+    //-> berechne wie viele 0en vor buf geschrieben werden müssen -> schreibe in neuen buffer welcher an
+    //writeondisk übergeben wird; zuvor numWritingBlocks anpassen
+    //TODO test this!
 
-    RETURN(0);
+    LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
+    index = searchForFile(path);
+    if(index >= 0) {
+        //wo die Bytes angefangen werden zu lesen
+        unsigned int startInFirstBlock = offset % BLOCK_SIZE;
+        //wo die Bytes aufgehört werden zu lesen
+        unsigned int endInLastBlock = (startInFirstBlock + size) % BLOCK_SIZE;
+
+        //number of blocks that need to be read
+        unsigned int numBlocksForward = offset / BLOCK_SIZE;
+        //the first block of the file
+        unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;
+        //getting first Block relative to offset
+        startingBlock = getStartingBlock(startingBlock, numBlocksForward);
+        //die anzahl der blöcke wird dadurch beeinfluss wie groß size ist
+        //size wiederum wird dadurch beeinflusst wo die bytes angefangen werden zu lesen -> offset
+        //dabei ist nur die Verschiebung in dem Block in welchem angefangen wird zu lesen zu berücksichtigen -> startInFirstBlock
+        unsigned int numWritingBlocks = endInLastBlock == 0 ?
+                                        (startInFirstBlock + size) / BLOCK_SIZE : (startInFirstBlock + size) / BLOCK_SIZE + 1;
+        writeOnDisk(startingBlock, buf, numWritingBlocks, size, false, fileInfo);
+
+        MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
+
+        size_t newSize = offset + size > file->dataSize ?
+                offset + size : file->dataSize;
+        file->dataSize = newSize;
+
+        synchronize();
+
+        updateTime(index, 0);
+
+        RETURN(newSize);
+    }
+    return index;
 }
 
 /// @brief Close a file.
@@ -555,7 +598,7 @@ void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     fileArray[index] = '\0';
 }
 
-int MyOnDiskFS::findNextFreeBlock(int lastBlock) {  //TODO benötigt lastBlock?!??!
+int MyOnDiskFS::findNextFreeBlock(int lastBlock) {  //TODO benötigt?!?
     lastBlock++; //current as parameter is the current block which is definitely not free
 
     while(true) {
@@ -623,7 +666,7 @@ void MyOnDiskFS::buildStructure() {
         size_t s = sdfr->getSize(i);
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
-        writeOnDisk(sdfr->getIndex(i), buf, indexes[i + 1] - indexes[i], s);;
+        writeOnDisk(sdfr->getIndex(i), buf, indexes[i + 1] - indexes[i], s, true, nullptr);;
     }
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
@@ -641,17 +684,38 @@ void MyOnDiskFS::buildStructure() {
 //TODO immer wenn an einer Datei was geändert wird müssen auch die sdfr Blöcke verändert werden in der .bin -> funktion synchronize()
 //TODO anfangs sind keine Blöcke belegt -> writeondisk sollte am besten immer nächstliegenden Block nehmen -> keine eigene Funktion für building, da sdfr blöcke dann garantiert nebeneinander liegen
 //write on disk mit nebeneinander liegenden blocks - erstmal nur für structure builden
-void MyOnDiskFS::writeOnDisk(unsigned int blockNumber, char* pufAll, unsigned int numBlocks, size_t size) {
+void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsigned int numBlocks, size_t size, bool building, struct fuse_file_info *fileInfo) {
     char buf[BLOCK_SIZE];
     size_t currentSize;
     unsigned int counter = 0;
+    char pufAllNew[size];
+    memcpy(pufAllNew, pufAll, size);
 
     for (int i = 0; i < numBlocks; i++) {
-        currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
-        memcpy(buf, pufAll + counter, currentSize);
-        blockDevice->write(blockNumber, buf);
-        blockNumber++;
-        counter += BLOCK_SIZE;
+        if (!building) {
+            currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+            memcpy(buf, pufAllNew + counter, currentSize);
+            blockDevice->write(startBlock, buf);
+
+            if (i != numBlocks - 1) {
+                bool needNewBlock = sdfr->fat->FATTable[startBlock] == EOF;
+
+                if (!needNewBlock) {
+                    startBlock = sdfr->fat->FATTable[startBlock];
+                } else{
+                    int temp = startBlock;
+                    sdfr->fat->FATTable[temp] = startBlock = findNextFreeBlock();
+                    sdfr->fat->FATTable[startBlock] = EOF;
+                    sdfr->dmap->freeBlocks[startBlock] = '1';
+                }
+            }
+        } else{
+            currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+            memcpy(buf, pufAllNew + counter, currentSize);
+            blockDevice->write(startBlock, buf);
+            startBlock++;
+            counter += BLOCK_SIZE;
+        }
     }
 }
 
