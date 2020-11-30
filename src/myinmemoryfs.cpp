@@ -281,8 +281,8 @@ int MyInMemoryFS::fuseRead(const char *path, char *buf, size_t size, off_t offse
     index = searchForFile(path);
     if(index >= 0) {
         unsigned long toRead = size < myFiles[index].dataSize - offset ? size : myFiles[index].dataSize - offset;
-        LOGF("size: %d | toRead: %d | offset: %d", size, toRead, offset);
         memcpy( buf, myFiles[index].data + offset, toRead);
+        LOGF("size: %d | toRead: %d | offset: %d | dataSize: %d | buf: %s", size, toRead, offset, myFiles[index].dataSize, buf);
         updateTime(index, 0);
         RETURN(toRead);
     }
@@ -310,9 +310,9 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
     index = searchForFile(path);
     if (index >= 0) {
         size_t newSize = offset + size > myFiles[index].dataSize ? offset + size : myFiles[index].dataSize; //if new bytes are written the new size is offset + size; if only already written bytes are overwritten new size is old size
-        LOGF("newSize: %d | offset + size: %d | datasize: %d | buf: %s", newSize, offset + size, myFiles[index].dataSize, buf);
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
         memcpy(myFiles[index].data + offset, buf , size);
+        LOGF("size: %d | newSize: %d | offset + size: %d | datasize: %d | buf: %s", size, newSize, offset + size, myFiles[index].dataSize, buf);
         myFiles[index].dataSize = newSize;
         updateTime(index, 1);
         RETURN(size);
