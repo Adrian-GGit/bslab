@@ -46,7 +46,7 @@ public:
 
     // TODO: Add methods of your file system here
     void buildStructure();
-    void writeOnDisk(unsigned int startBlock, const char* buf, unsigned int numBlocks, size_t size, bool building, struct fuse_file_info *fileInfo);
+    void writeOnDisk(unsigned int startBlock, const char* buf, unsigned int numBlocks, size_t size, off_t offset, bool building, struct fuse_file_info *fileInfo);
     void readContainer();
     void readOnDisk(unsigned int startingBlock, char *puf, unsigned int numBlocks, size_t size, bool building, struct fuse_file_info *fileInfo);
     void setIndexes();
