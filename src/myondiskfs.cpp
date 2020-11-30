@@ -312,32 +312,40 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         //wo die Bytes aufgehört werden zu lesen
         unsigned int endInLastBlock = (startInFirstBlock + size) % BLOCK_SIZE;
 
+        size_t dataSize = sdfr->root->fileInfos[index].dataSize;
+        size_t toRead;
+        size_t numReadingBlocks;
+
         //number of blocks that need to be read
         unsigned int numBlocksForward = offset / BLOCK_SIZE;
-        //the first block of the file
-        unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;
+
         //getting first Block relative to offset
+        unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);
-        //LOGF("startingBlockRead: %d", startingBlock);
         //die anzahl der blöcke wird dadurch beeinfluss wie groß size ist
         //size wiederum wird dadurch beeinflusst wo die bytes angefangen werden zu lesen -> offset
         //dabei ist nur die Verschiebung in dem Block in welchem angefangen wird zu lesen zu berücksichtigen -> startInFirstBlock
         //LOGF("num1: %d | size: %d | startinfirstblock: %d", (startInFirstBlock + size) / BLOCK_SIZE, size, startInFirstBlock);
-        unsigned long toRead = size < sdfr->root->fileInfos[index].dataSize - offset ? size : sdfr->root->fileInfos[index].dataSize - offset;
-        unsigned int numReadingBlocks = endInLastBlock == 0 ?
-                (startInFirstBlock + size) / BLOCK_SIZE : (startInFirstBlock + size) / BLOCK_SIZE + 1;
+        if (size < dataSize - offset) {
+            toRead = size;
+            numReadingBlocks = endInLastBlock == 0 ? (startInFirstBlock + size) / BLOCK_SIZE : (startInFirstBlock + size) / BLOCK_SIZE + 1;
+        } else{
+            toRead = dataSize - offset;
+            numReadingBlocks = endInLastBlock == 0 ?
+                    (startInFirstBlock + dataSize) / BLOCK_SIZE : (startInFirstBlock + dataSize) / BLOCK_SIZE + 1;
+        }
 
         char puf[toRead];
-        readOnDisk(startingBlock, puf, numReadingBlocks, toRead, false, fileInfo);
+        readOnDisk(startingBlock, puf, numReadingBlocks, toRead, offset, false, fileInfo);
 
         //LOGF("size: %d | toRead: %d | offset: %d | numReadingBlocks: %d | puf: %s", size, toRead, offset, numReadingBlocks, puf);
 
         //TODO test!
-        memcpy(buf, puf + offset, toRead);
+        /*memcpy(buf, puf + offset, toRead);
+
+        memcpy(puffer, puf + (numReadingBlocks - 1) * BLOCK_SIZE, BLOCK_SIZE);*/
 
         updateTime(index, 0);
-
-        memcpy(puffer, puf + (numReadingBlocks - 1) * BLOCK_SIZE, BLOCK_SIZE);
 
         RETURN(toRead);
     }
@@ -695,8 +703,6 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
     char buf[BLOCK_SIZE];
     size_t currentSize;
     unsigned int counter = 0;
-    //char pufAllNew[size];
-    //memcpy(pufAllNew, pufAll, size);
 
     for (int i = 0; i < numBlocks; i++) {
         if (!building) {
@@ -708,7 +714,6 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
             LOGF("Davor: buf: %s | buf + offset: %s | pufAll + counter: %s | currentSize - offset: %d", buf, buf + offset, pufAll + counter, currentSize - offset);
             memcpy(buf + offset, pufAll + counter, currentSize);
             LOGF("buf: %s | buf + offset: %s | pufAll + counter: %s | currentSize - offset: %d", buf, buf + offset, pufAll + counter, currentSize - offset);
-            offset = 0;
             blockDevice->write(startBlock, buf);
 
             if (i != numBlocks - 1) {
@@ -731,6 +736,7 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
             blockDevice->write(startBlock, buf);
             startBlock++;
         }
+        offset = 0;
         counter += BLOCK_SIZE;
     }
 }
@@ -739,7 +745,7 @@ void MyOnDiskFS::readContainer() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
         char puffer[s];
-        readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s, true, nullptr);
+        readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s, 0, true, nullptr);
         memcpy(sdfr->getStruct(i), puffer, s);
     }
 
@@ -759,7 +765,7 @@ void MyOnDiskFS::readContainer() {
 }
 
 //TODO evtl sogar write und read zusammen packen zu einer funktion mit unterscheidung write oder read
-void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int numBlocks, size_t size, bool building, struct fuse_file_info *fileInfo) {
+void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int numBlocks, size_t size, off_t offset, bool building, struct fuse_file_info *fileInfo) {
     char buf[BLOCK_SIZE];
     size_t currentSize;
     unsigned int counter = 0;
@@ -767,11 +773,11 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
    for (int i = 0; i < numBlocks; i++) {
        if (!building) {     //TODO evlt mit &&
            if (startBlock == fileInfo->fh) {
-               memcpy(puf + counter, puffer, BLOCK_SIZE);
+               memcpy(puf + counter, puffer + offset, BLOCK_SIZE);
            } else{
                currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
                blockDevice->read(startBlock, buf);
-               memcpy(puf + counter, buf, currentSize);
+               memcpy(puf + counter, buf + offset, currentSize);
            }
            startBlock = sdfr->fat->FATTable[startBlock];
        } else{
@@ -780,7 +786,7 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
            memcpy(puf + counter, buf, currentSize);
            startBlock++;
        }
-
+       offset = 0;
        counter += BLOCK_SIZE;
    }
 }
