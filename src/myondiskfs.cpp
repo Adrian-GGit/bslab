@@ -302,6 +302,8 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
+    //TODO fragen wie das mit read mitten aus einer file funktionieren soll: size ist immer 4096
+
     //TODO test this!
 
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
@@ -321,6 +323,7 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
 
         //LOGF("num1: %d | size: %d | startinfirstblock: %d", (startInFirstBlock + size) / BLOCK_SIZE, size, startInFirstBlock);
+        //TODO ternärer operator
         if (size < dataSize - offset) {
             toRead = size;
         } else{
@@ -378,9 +381,7 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
 int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    //TODO unbeschriebener platz soll mit 0en aufgefüllt werden
-    //-> berechne wie viele 0en vor buf geschrieben werden müssen -> schreibe in neuen buffer welcher an
-    //writeondisk übergeben wird; zuvor numWritingBlocks anpassen
+    //TODO wie kann eigentlich was aus Datei gelöscht werden???
     //TODO test this!
 
     LOGF( "--> Trying to write %s, %lu, %lu\n", path, (unsigned long) offset, size);
@@ -399,12 +400,39 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
 
+        //falls offset größer als die dateigrößer selber ist -> dazwischen ist freier platz welcher allokiert und mit 0en aufgefüllt wird
+        //TODO test this
+        if (offset > file->dataSize) {
+            unsigned int missing = offset - file->dataSize;
+            char puf[missing + size];
+            memset(puf, 0, missing);
+            memcpy(puf + missing, buf, size);
+
+            for (int i = 0; i < numBlocksForward; i++) {
+                //TODO redundanten code durch auslagerung vermeiden
+                bool needNewBlock = sdfr->fat->FATTable[startingBlock] == EOF;
+
+                if (!needNewBlock) {
+                    startingBlock = sdfr->fat->FATTable[startingBlock];
+                } else{
+                    int temp = startingBlock;
+                    //TODO falls startBlock < 0 -> nomem
+                    sdfr->fat->FATTable[temp] = startingBlock = findNextFreeBlock();
+                    sdfr->fat->FATTable[startingBlock] = EOF;
+                    sdfr->dmap->freeBlocks[startingBlock] = '1';
+                }
+            }
+
+            buf = puf; //TODO funktioniert das so?!?!?!?!?!??!?!?
+        }
+
         //LOGF("startingBlockWrite: %d", startingBlock);
 
         //LOGF("newSize: %d | offset + size: %d | datasize: %d | buf: %s", size, offset + size, file->dataSize, buf);
         //unsigned int numWritingBlocks = endInLastBlock == 0 ?
         //                                (startInFirstBlock + size) / BLOCK_SIZE : (startInFirstBlock + size) / BLOCK_SIZE + 1;
 
+        //TODO ternärer operator
         if (offset + size > file->dataSize) {
             newSize = offset + size;
         } else{
@@ -577,6 +605,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
             setIndexes();
             //read Container
+            //TODO EVTL fillFatAndDmap
             readContainer();
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
@@ -619,6 +648,7 @@ void MyOnDiskFS::setIndexes() {
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr->getIndex(i);
         sdfr->setIndex(i, currentIndex + numBlocks);
+        //TODO indexes nötig??? -> statt indexes[i] einfach sdfr->getIndex(i);
         indexes[i] = currentIndex + numBlocks;
         size_t s = sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
@@ -757,7 +787,7 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
 
     for (int i = 0; i < numBlocks; i++) {
         if (!building) {
-            currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
+            /*currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
             //TODO evtl mal hier debuggen (wegen pufALlNew + counter, size ist newSize)
             if (offset != 0) {
                 blockDevice->read(startBlock, buf);
@@ -779,7 +809,7 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
                     sdfr->fat->FATTable[startBlock] = EOF;
                     sdfr->dmap->freeBlocks[startBlock] = '1';
                 }
-            }
+            }*/
             //TODO evtl statt startBlock auch über fat -> vermeiden von redundanten code
         } else{
             currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
@@ -823,14 +853,14 @@ void MyOnDiskFS::readOnDisk(unsigned int startBlock, char* puf, unsigned int num
 
    for (int i = 0; i < numBlocks; i++) {
        if (!building) {     //TODO evlt mit &&
-           if (startBlock == fileInfo->fh) {
+           /*if (startBlock == fileInfo->fh) {
                memcpy(puf + counter, puffer + offset, BLOCK_SIZE);
            } else{
                currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
                blockDevice->read(startBlock, buf);
                memcpy(puf + counter, buf + offset, currentSize);
            }
-           startBlock = sdfr->fat->FATTable[startBlock];
+           startBlock = sdfr->fat->FATTable[startBlock];*/
        } else{
            currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
            blockDevice->read(startBlock, buf);
