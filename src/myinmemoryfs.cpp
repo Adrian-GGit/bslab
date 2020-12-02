@@ -312,7 +312,7 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
         size_t newSize = offset + size > myFiles[index].dataSize ? offset + size : myFiles[index].dataSize; //if new bytes are written the new size is offset + size; if only already written bytes are overwritten new size is old size
         myFiles[index].data = static_cast<char*>(realloc(myFiles[index].data, newSize));
         memcpy(myFiles[index].data + offset, buf , size);
-        LOGF("size: %d | newSize: %d | offset + size: %d | datasize: %d | buf: %s", size, newSize, offset + size, myFiles[index].dataSize, buf);
+        LOGF("size: %d | newSize: %d | offset: %d | offset + size: %d | datasize: %d | buf: %s", size, newSize, offset, offset + size, myFiles[index].dataSize, buf);
         myFiles[index].dataSize = newSize;
         updateTime(index, 1);
         RETURN(size);

@@ -31,7 +31,7 @@ struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
     size_t dataSize = 0;
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
-    unsigned int byteEndBlock = 0;               //TODO benötigt??!? beschreibt bei ondisk bei welchem Byte im letzten Block Datei endet
+    unsigned int noBlocks = 0;      //beschreibt bei ondisk wie viele Blöcke der size BLOCK_SIZE benutzt werden
     unsigned int userId;
     unsigned int groupId;
 

@@ -90,6 +90,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
         sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
+        newData->noBlocks = 1;
 
         synchronize();
 
@@ -383,22 +384,11 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
 int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    LOGF( "--> Trying to write %s, %lu, %lu\n", path, (unsigned long) offset, size);
+    LOGF("--> Trying to write %s, %lu, %lu\n", path, (unsigned long) offset, size);
     LOGF("buf: %s", buf);
     index = searchForFile(path);
-    if(index >= 0) {
-        MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
-
-        unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
-        unsigned int endInLastBlock = (startInFirstBlock + size) % BLOCK_SIZE;  //wo die Bytes aufgehört werden zu lesen
-
-        size_t newSize;
-        size_t numWritingBlocks;
-
-        unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
-
-        unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
-        startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
+    if (index >= 0) {
+        MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
 
         //falls offset größer als die dateigrößer selber ist -> dazwischen ist freier platz welcher allokiert und mit 0en aufgefüllt wird
         if (offset > file->dataSize) {
@@ -408,11 +398,38 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
             fuseWrite(path, puf, missing, offset - missing, fileInfo);
         }
 
-        //LOGF("startingBlockWrite: %d", startingBlock);
+        unsigned int freeSpace = file->dataSize % BLOCK_SIZE;
 
-        //LOGF("newSize: %d | offset + size: %d | datasize: %d | puf: %s", size, offset + size, file->dataSize, puf);
-        //unsigned int numWritingBlocks = endInLastBlock == 0 ?
-        //                                (startInFirstBlock + size) / BLOCK_SIZE : (startInFirstBlock + size) / BLOCK_SIZE + 1;
+        //falls in dem letzten Block nicht mehr genug Platz ist für alle Bytes muss der letzte Block gefüllt werden
+        //und für die restlichen Bytes ein neuer Block angefangen werden
+        if (freeSpace == 0) {
+
+        }
+
+        if (size > freeSpace) {
+            char bufFillFreeSpace[freeSpace];
+            memcpy(bufFillFreeSpace, buf, freeSpace);
+
+            fuseWrite(path, buf + freeSpace, size - freeSpace, offset + freeSpace, fileInfo);
+        } else{
+            write(file, buf, size, offset, fileInfo);
+        }
+
+    }
+    return index;
+}
+
+int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
+    size_t newSize;
+    size_t numWritingBlocks;
+
+    unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
+    unsigned int endInLastBlock = (startInFirstBlock + size) % BLOCK_SIZE;  //wo die Bytes aufgehört werden zu lesen
+
+    unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
+
+    unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
+    startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
 
         //TODO ternärer operator
         if (offset + size > file->dataSize) {
@@ -423,8 +440,6 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         numWritingBlocks = endInLastBlock == 0 ?
                            (startInFirstBlock + size) / BLOCK_SIZE : (startInFirstBlock + size) / BLOCK_SIZE + 1;
 
-        //writeOnDisk(startingBlock, puf, numWritingBlocks, newSize, offset, false, fileInfo);
-
         char blockBuffer[BLOCK_SIZE];
         size_t currentSize;
         unsigned int counter = 0;
@@ -434,14 +449,15 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
             currentSize = size - counter >= BLOCK_SIZE ? BLOCK_SIZE : size - counter;
 
             if (currentOffset != 0) {
-                blockDevice->read(startingBlock, blockBuffer);
+                blockDevice->read(startingBlock, blockBuffer);  //TODO füge noch ein dass fileinfo genutzt wird
             }
 
             memcpy(blockBuffer + currentOffset, buf + counter, currentSize);
             //LOGF("blockBuffer[512]: %s | blockBuffer[512] + currentOffset: %s | puf: %s | puf + counter: %s", blockBuffer, blockBuffer + currentOffset, puf, puf + counter);
             LOGF("buf: %s | buf + counter: %s", buf, buf + counter);
-            LOGF("startingBlock: %d | numWritingBlock: %d | currentSize: %d | counter: %d | size: %d | dataSize: %d | currentOffset: %d",
-                 startingBlock, numWritingBlocks, currentSize, counter, size, file->dataSize, currentOffset);
+            LOGF("startingBlock: %d | numWritingBlock: %d", startingBlock, numWritingBlocks);
+            LOGF("currentsize: %d | size: %d | newSize: %d | datasize: %d", currentSize, size, newSize, file->dataSize);
+            LOGF("offset: %d", offset);
             blockDevice->write(startingBlock, blockBuffer);
 
             if (i != numWritingBlocks - 1) {
@@ -455,6 +471,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
                     sdfr->fat->FATTable[temp] = startingBlock = findNextFreeBlock();
                     sdfr->fat->FATTable[startingBlock] = EOF;
                     sdfr->dmap->freeBlocks[startingBlock] = '1';
+                    file->noBlocks++;
                 }
             }
             currentOffset = 0;
@@ -474,8 +491,6 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         updateTime(index, 0);
 
         RETURN(size);
-    }
-    return index;
 }
 
 /// @brief Close a file.
