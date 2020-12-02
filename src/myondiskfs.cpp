@@ -386,7 +386,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
 
     LOGF("--> Trying to write %s, %lu, %lu\n", path, (unsigned long) offset, size);
     LOGF("buf: %s", buf);
-    index = searchForFile(path);
+    index = searchForFile(path);        //TODO funktion anders formen, da bei rekursion immer wieder unnötigerweise searchforfile aufgerufen wird
     if (index >= 0) {
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
 
@@ -398,23 +398,77 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
             fuseWrite(path, puf, missing, offset - missing, fileInfo);
         }
 
-        unsigned int freeSpace = file->dataSize % BLOCK_SIZE;
+        unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
+        //unsigned int endInLastBlock = (startInFirstBlock + size) % BLOCK_SIZE;  //wo die Bytes aufgehört werden zu lesen
+        unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
+        unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
 
-        //falls in dem letzten Block nicht mehr genug Platz ist für alle Bytes muss der letzte Block gefüllt werden
-        //und für die restlichen Bytes ein neuer Block angefangen werden
-        if (freeSpace == 0) {
+        //hole neuen Block falls aktueller Block voll ist
+        if (numBlocksForward == file->noBlocks) {
+            startingBlock = getStartingBlock(startingBlock, numBlocksForward - 1);
+            int temp = startingBlock;
+            //TODO falls startBlock < 0 -> nomem
+            sdfr->fat->FATTable[temp] = startingBlock = findNextFreeBlock();
+            sdfr->fat->FATTable[startingBlock] = EOF;
+            sdfr->dmap->freeBlocks[startingBlock] = '1';
+            file->noBlocks++;
+        } else{
+            startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
+        }
 
+
+        //unsigned int freeSpaceInLastBlock = BLOCK_SIZE - (file->dataSize % BLOCK_SIZE);
+        //unsigned int freeSpaceInCurrentBlock = numBlocksForward == (file->dataSize / BLOCK_SIZE) ?  //ist noch nicht der hinterste Block erreicht -> freespace ist 0
+        //        0 : freeSpaceInLastBlock;
+
+        unsigned int freeSizeInCurrentBlock = BLOCK_SIZE - startInFirstBlock;
+        char blockBuffer[BLOCK_SIZE];
+        blockDevice->read(startingBlock, blockBuffer);
+        //falls alle zu schreibenden Bytes in den aktuellen Block passen -> hole bestehende Bytes bis offset -> rest werden neue Bytes
+        if (size <= freeSizeInCurrentBlock) {
+            unsigned int pufferSize = startInFirstBlock + size;
+            char puffer[pufferSize];
+            memcpy(puffer, blockBuffer, startInFirstBlock);
+            memcpy(puffer + startInFirstBlock, buf, size);
+
+            write(file, puffer, pufferSize, offset, fileInfo);
+        } else {
+            char puffer[BLOCK_SIZE];
+            memcpy(puffer, blockBuffer, startInFirstBlock);
+            memcpy(puffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
+
+            write(file, puffer, BLOCK_SIZE, offset, fileInfo);
+            fuseWrite(path, buf + BLOCK_SIZE, size - freeSizeInCurrentBlock, offset + BLOCK_SIZE, fileInfo);
+        }
+
+
+        //falls freespace 0 ist bedeutet das entweder wird was in diesem Block überschrieben
+        /*if (freeSpaceInCurrentBlock == 0) {
+            bool needNewBlock = sdfr->fat->FATTable[startingBlock] == EOF;
+
+            if (!needNewBlock) {
+                startingBlock = sdfr->fat->FATTable[startingBlock];
+            } else{
+                int temp = startingBlock;
+                //TODO falls startBlock < 0 -> nomem
+                sdfr->fat->FATTable[temp] = startingBlock = findNextFreeBlock();
+                sdfr->fat->FATTable[startingBlock] = EOF;
+                sdfr->dmap->freeBlocks[startingBlock] = '1';
+                file->noBlocks++;
+            }
         }
 
         if (size > freeSpace) {
             char bufFillFreeSpace[freeSpace];
             memcpy(bufFillFreeSpace, buf, freeSpace);
+            write(file, bufFillFreeSpace, freeSpace, offset, fileInfo);
 
             fuseWrite(path, buf + freeSpace, size - freeSpace, offset + freeSpace, fileInfo);
         } else{
             write(file, buf, size, offset, fileInfo);
-        }
+        }*/
 
+        return ;
     }
     return index;
 }
