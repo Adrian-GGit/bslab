@@ -383,9 +383,6 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
 int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    //TODO wie kann eigentlich was aus Datei gelöscht werden???
-    //TODO test this!
-
     LOGF( "--> Trying to write %s, %lu, %lu\n", path, (unsigned long) offset, size);
     LOGF("buf: %s", buf);
     index = searchForFile(path);
@@ -397,7 +394,6 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
 
         size_t newSize;
         size_t numWritingBlocks;
-        size_t missing = 0;
 
         unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
 
@@ -405,31 +401,8 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
 
         //falls offset größer als die dateigrößer selber ist -> dazwischen ist freier platz welcher allokiert und mit 0en aufgefüllt wird
-        //TODO test this
         if (offset > file->dataSize) {
-            missing = offset - file->dataSize;
-            /*char* puf = new char[missing + size];
-
-            memcpy(puf + missing, buf, size);
-            LOGF("new puf: %s | old buf: %s", puf, buf);
-
-            for (int i = 0; i < numBlocksForward; i++) {
-                //TODO redundanten code durch auslagerung vermeiden
-                bool needNewBlock = sdfr->fat->FATTable[startingBlock] == EOF;
-
-                if (!needNewBlock) {
-                    startingBlock = sdfr->fat->FATTable[startingBlock];
-                } else{
-                    int temp = startingBlock;
-                    //TODO falls startBlock < 0 -> nomem
-                    sdfr->fat->FATTable[temp] = startingBlock = findNextFreeBlock();
-                    sdfr->fat->FATTable[startingBlock] = EOF;
-                    sdfr->dmap->freeBlocks[startingBlock] = '1';
-                }
-            }
-            LOGF("new puf: %s", puf);
-
-             //memcpy((void *) buf, puf, missing + size);*/
+            size_t missing = offset - file->dataSize;
             char puf[missing];
             memset(puf, '0', missing);
             fuseWrite(path, puf, missing, offset - missing, fileInfo);
@@ -500,9 +473,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
 
         updateTime(index, 0);
 
-        //delete[] puf;
-
-        RETURN(size + missing);
+        RETURN(size);
     }
     return index;
 }
