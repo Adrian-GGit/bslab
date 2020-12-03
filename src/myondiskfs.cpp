@@ -113,7 +113,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
     LOGM();
 
     index = searchForFile(path);
-    LOGF("index: %d", index);
+    LOGF("index: %d | path: %s", index, path);
     int numBlocks = 1;
 
     if (index >= 0) {
@@ -130,13 +130,31 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         //reset dmap and fat
         fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]), false);
         //reset element in root and fill gap
-        //starting from position where file to delete is to the last file (count - 1 -> < count)
-        //bedenke hinterstes Element wird doppelt vorhanden sein -> sollte aber nicht gefunden werden können da searchForFile nur bis count nachguckt
+        //last element
         for (int i = index; i < count; i++) {
-            sdfr->root->fileInfos[i] = sdfr->root->fileInfos[i + 1];
+
+            //überschreibe letztes Element mit leerer MyFsFileInfo
+            if (i == count - 1) {
+                sdfr->root->fileInfos[count] = MyFsFileInfo();
+            } else{
+                sdfr->root->fileInfos[i] = sdfr->root->fileInfos[i + 1];
+            }
         }
 
         count--;
+        //LOGF("count: %d", count);
+        /*for (int i = 0; i < 1200; i++) {
+            LOGF("fileName: %s", sdfr->dmap->freeBlocks[i]);
+        }
+
+        for (int i = 0; i < 1200; i++) {
+            LOGF("fileName: %s", sdfr->fat->FATTable[i]);
+        }
+
+        for (int i = 0; i < 64; i++) {
+            LOGF("fileName: %s", sdfr->root->fileInfos[i].fileName);
+        }*/
+
         RETURN(0);
     }
 
@@ -346,17 +364,17 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
             blockDevice->read(startingBlock, blockBuffer);
             memcpy(buf + counter, blockBuffer + offset, currentSize);
             //LOGF("blockBuffer[512]: %s | blockBuffer[512] + offset: %s | buf: %s | buf + counter: %s", blockBuffer, blockBuffer + offset, buf, buf + counter);
-            LOGF("buf: %s | buf + counter: %s", buf, buf + counter);
-            LOGF("startingBlock: %d | numWritingBlock: %d | currentSize: %d | counter: %d | size: %d | dataSize: %d | offset: %d",
-                 startingBlock, numReadingBlocks, currentSize, counter, size, dataSize, offset);
+            //LOGF("blockBuffer: %s", blockBuffer);
+            //LOGF("startingBlock: %d | numWritingBlock: %d | currentSize: %d | counter: %d | size: %d | dataSize: %d | offset: %d",
+            //     startingBlock, numReadingBlocks, currentSize, counter, size, dataSize, offset);
             startingBlock = sdfr->fat->FATTable[startingBlock];
             offset = 0;
             counter += BLOCK_SIZE;
         }
 
-        LOG("---------------------------------------------------------------------------------------");
-        LOGF("buffinal: %s", buf);
-        LOG("---------------------------------------------------------------------------------------");
+        //LOG("---------------------------------------------------------------------------------------");
+        //LOGF("buffinal: %s", buf);
+        //LOG("---------------------------------------------------------------------------------------");
 
         updateTime(index, 0);
 
@@ -384,7 +402,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
     LOGM();
 
     LOGF("--> Trying to write %s, %lu, %lu\n", path, (unsigned long) offset, size);
-    LOGF("buf: %s", buf);
+    //LOGF("buf: %s", buf);
     index = searchForFile(path);        //TODO funktion anders formen, da bei rekursion immer wieder unnötigerweise searchforfile aufgerufen wird
     size_t totalSize = 0;
     if (index >= 0) {
@@ -412,11 +430,16 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
             sdfr->fat->FATTable[startingBlock] = EOF;
             sdfr->dmap->freeBlocks[startingBlock] = '1';
             file->noBlocks++;
+            //LOGF("oldstartingBlock: %d | newStartingBlock: %d", temp, startingBlock);
         } else{
             startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
         }
 
         unsigned int freeSizeInCurrentBlock = BLOCK_SIZE - startInFirstBlock;
+
+        //LOGF("size: %d | freeSizeInFirstBlock: %d | startinfirstblock: %d | numBlocksForward: %d",
+        //     size, freeSizeInCurrentBlock, startInFirstBlock, numBlocksForward);
+
         char blockBuffer[BLOCK_SIZE];
         blockDevice->read(startingBlock, blockBuffer);
         //falls alle zu schreibenden Bytes in den aktuellen Block passen -> hole bestehende Bytes bis offset -> rest werden neue Bytes
@@ -427,19 +450,20 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
             memcpy(puffer + startInFirstBlock, buf, size);
 
             write(file, puffer, pufferSize, offset, startingBlock, fileInfo);
-            file->dataSize += size;
-            totalSize += size;//
+            totalSize += size;
+            file->dataSize = totalSize;
         } else {
             char puffer[BLOCK_SIZE];
             if (startInFirstBlock != 0)
                 memcpy(puffer, blockBuffer, startInFirstBlock);
             memcpy(puffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
             write(file, puffer, BLOCK_SIZE, offset, startingBlock, fileInfo);
-            file->dataSize += freeSizeInCurrentBlock;//
             totalSize += freeSizeInCurrentBlock;
+            file->dataSize = totalSize;
             totalSize += fuseWrite(path, buf + freeSizeInCurrentBlock, size - freeSizeInCurrentBlock, offset + freeSizeInCurrentBlock, fileInfo);
         }
 
+        file->dataSize = totalSize;
         return totalSize;
     }
     return index;
@@ -461,7 +485,7 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
     index = searchForFile(path);
-    LOGF("index: %d | openFiles: %d", index, openFiles);
+    //LOGF("index: %d | openFiles: %d", index, openFiles);
     if (index >= 0) {
         openFiles--;
         updateTime(index, 0);
@@ -614,10 +638,10 @@ void MyOnDiskFS::setIndexes() {
 
 int MyOnDiskFS::searchForFile(const char* path) {
     LOGM();
-    LOGF("count: %d", count);
+    //LOGF("count: %d", count);
     for (int i = 0; i < count; i++) {
         if (strcmp(path + 1, sdfr->root->fileInfos[i].fileName) == 0) {
-            LOGF("GEFUNDEN %s", path + 1);
+            //LOGF("GEFUNDEN %s", path + 1);
             RETURN(i);
         }
     }
