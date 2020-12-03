@@ -427,29 +427,30 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
             memcpy(puffer, blockBuffer, startInFirstBlock);
             memcpy(puffer + startInFirstBlock, buf, size);
 
-            totalSize += write(file, puffer, pufferSize, offset, startingBlock, fileInfo);
+            write(file, puffer, pufferSize, offset, startingBlock, fileInfo);
+            file->dataSize += freeSizeInCurrentBlock;
+            totalSize += size;//
         } else {
             char puffer[BLOCK_SIZE];
-            memcpy(puffer, blockBuffer, startInFirstBlock);
+            if (startInFirstBlock != 0)
+                memcpy(puffer, blockBuffer, startInFirstBlock);
             memcpy(puffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
-
-            totalSize += write(file, puffer, BLOCK_SIZE, offset, startingBlock, fileInfo);
-            totalSize += fuseWrite(path, buf + BLOCK_SIZE, size - freeSizeInCurrentBlock, offset + BLOCK_SIZE, fileInfo);
+            write(file, puffer, BLOCK_SIZE, offset, startingBlock, fileInfo);
+            file->dataSize += freeSizeInCurrentBlock;//
+            totalSize += freeSizeInCurrentBlock;
+            totalSize += fuseWrite(path, buf + freeSizeInCurrentBlock, size - freeSizeInCurrentBlock, offset + freeSizeInCurrentBlock, fileInfo);
         }
 
-        file->dataSize = size + offset;
         return totalSize;
     }
     return index;
 }
 
-int MyOnDiskFS::write(MyFsFileInfo *file, char *buf, size_t size, off_t offset, unsigned int blockNumber, struct fuse_file_info *fileInfo) {
+void MyOnDiskFS::write(MyFsFileInfo *file, char *buf, size_t size, off_t offset, unsigned int blockNumber, struct fuse_file_info *fileInfo) {
     blockDevice->write(blockNumber, buf);
 
     synchronize();
     updateTime(index, 0);
-
-    RETURN(size);
 }
 
 /// @brief Close a file.
