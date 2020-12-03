@@ -44,7 +44,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
 MyOnDiskFS::~MyOnDiskFS() {
     // free block device object
     delete this->blockDevice;
-
+    delete[] puffer;
     delete sdfr->superBlock;
     delete sdfr->dmap;
     delete sdfr->fat;
@@ -277,7 +277,6 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
         RETURN(-ENOENT);
     }
 
-    puffer = new char[BLOCK_SIZE];
     fileInfo->fh = -1;  //nothing relevant in the puffer ->
 
     openFiles++;
@@ -428,7 +427,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
             memcpy(puffer + startInFirstBlock, buf, size);
 
             write(file, puffer, pufferSize, offset, startingBlock, fileInfo);
-            file->dataSize += freeSizeInCurrentBlock;
+            file->dataSize += size;
             totalSize += size;//
         } else {
             char puffer[BLOCK_SIZE];
@@ -464,7 +463,6 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
     index = searchForFile(path);
     LOGF("index: %d | openFiles: %d", index, openFiles);
     if (index >= 0) {
-        delete[] puffer;
         openFiles--;
         updateTime(index, 0);
     }

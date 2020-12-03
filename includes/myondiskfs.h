@@ -19,7 +19,7 @@ public:
     // TODO: [PART 1] Add attributes of your file system here
 
     unsigned int indexes[NUM_SDFR];
-    char* puffer;
+    char* puffer = new char[BLOCK_SIZE];
 
     MyOnDiskFS();
     ~MyOnDiskFS();
