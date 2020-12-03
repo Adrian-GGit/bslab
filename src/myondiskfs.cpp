@@ -130,9 +130,8 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         //reset dmap and fat
         fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]), false);
         //reset element in root and fill gap
-        //last element
+        //last element can't be overwritten with i + 1 -> edge case
         for (int i = index; i < count; i++) {
-
             //überschreibe letztes Element mit leerer MyFsFileInfo
             if (i == count - 1) {
                 sdfr->root->fileInfos[count] = MyFsFileInfo();
