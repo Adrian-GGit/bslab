@@ -389,15 +389,13 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
     LOGF("--> Trying to write %s, %lu, %lu\n", path, (unsigned long) offset, size);
     index = searchForFile(path);
     size_t finalSize = 0;
+    size_t missing = 0;
     if (index >= 0) {
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
-
-        LOGF("dataSize: %d | offset: %d", file->dataSize, offset);
-
+        size_t s = file->dataSize;
         //falls offset größer als die dateigrößer selber ist -> dazwischen ist freier platz welcher allokiert und mit 0en aufgefüllt wird
         if (offset > file->dataSize) {
-            LOG("HI");
-            size_t missing = offset - file->dataSize;
+            missing = offset - file->dataSize;
             char puf[missing + size];
             memset(puf, '0', missing);
             memcpy(puf + missing, buf, size);
@@ -407,7 +405,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         }
 
         file->dataSize = offset + size > file->dataSize ? offset + size : file->dataSize;   //falls was überschrieben wird -> dataSize bleibt gleich, falls was dazukam offset + size
-        LOGF("dataSize: %d", file->dataSize);
+        finalSize -= missing;   //nötig??? eigentlich werden die 0en auch noch geschrieben
         synchronize();
         updateTime(index, 0);
         return finalSize;
