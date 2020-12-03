@@ -455,14 +455,15 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
         memcpy(puffer + endInLastBlock, lastPuffer + endInLastBlock, BLOCK_SIZE - endInLastBlock);
         memcpy(puffer + startInFirstBlock, buf, size);
         blockDevice->write(startingBlock, puffer);
-        return totalSize += size;
+        totalSize += size;
     } else {
         memcpy(puffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
         blockDevice->write(startingBlock, puffer);
         //buf muss um freeSizeInCurrentBlock nach vorne verschoben werden, size verringert sich, offset erhöht sich um freeSizeInCurrentBlock -> offset ist ab nun immer mod BLOCK_SIZE = 0
         totalSize += freeSizeInCurrentBlock + write(file, buf + freeSizeInCurrentBlock, size - freeSizeInCurrentBlock, offset + freeSizeInCurrentBlock, fileInfo);
-        return totalSize;
     }
+    return totalSize;
+
 }
 
 /// @brief Close a file.
