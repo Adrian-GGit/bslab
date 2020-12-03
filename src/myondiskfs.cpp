@@ -417,7 +417,7 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
     unsigned int totalSize = 0;
 
     unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
-    unsigned int endInLastBlock;
+    unsigned int endInLastBlock = (startInFirstBlock + size) % BLOCK_SIZE;  //wo die Bytes aufgehört werden zu lesen
     unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
     unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
 
@@ -463,7 +463,6 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
         totalSize += freeSizeInCurrentBlock + write(file, buf + freeSizeInCurrentBlock, size - freeSizeInCurrentBlock, offset + freeSizeInCurrentBlock, fileInfo);
     }
     return totalSize;
-
 }
 
 /// @brief Close a file.
