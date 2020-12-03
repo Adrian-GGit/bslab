@@ -392,14 +392,16 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
     if (index >= 0) {
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
 
+        LOGF("dataSize: %d | offset: %d", file->dataSize, offset);
+
         //falls offset größer als die dateigrößer selber ist -> dazwischen ist freier platz welcher allokiert und mit 0en aufgefüllt wird
         if (offset > file->dataSize) {
+            LOG("HI");
             size_t missing = offset - file->dataSize;
             char puf[missing + size];
             memset(puf, '0', missing);
             memcpy(puf + missing, buf, size);
             finalSize += write(file, puf, missing + size, offset - missing, fileInfo);    //neues offset muss um missing viele Bytes nach vorne verschoben werden
-
         } else{
             finalSize += write(file, buf, size, offset, fileInfo);
         }
