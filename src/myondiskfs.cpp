@@ -330,7 +330,7 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
 
     unsigned int leftBytes = dataSize - (numBlocksForward * BLOCK_SIZE);    //Anzahl Bytes die hinter offset in der Datei stehen
 
-    //TODO wird offset > datasize schon durch test read abgefangen oder muss man selber implementieren?
+    //TODO wird offset > datasize schon durch test read abgefangen oder muss man selber implementieren? - bzw ist dies hier unnötig?
     if (offset > dataSize) {
         RETURN(0);
     }
