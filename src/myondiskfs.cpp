@@ -309,8 +309,6 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
 
     //TODO fragen wie das mit read mitten aus einer file funktionieren soll: size ist immer 4096
 
-    //TODO test this!
-
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
     index = searchForFile(path);
     if(index >= 0) {
@@ -366,6 +364,10 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         RETURN(toRead);
     }
     return index;
+}
+
+unsigned int MyOnDiskFS::read(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
+
 }
 
 /// @brief Write to a file.
@@ -441,24 +443,27 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
 
     char firstPuffer[BLOCK_SIZE];
     char lastPuffer[BLOCK_SIZE];
-    char puffer[BLOCK_SIZE];
-
-    //TODO von fileinfo auslesen falls startingblock == fileInfo->fh
+    char middlePuffer[BLOCK_SIZE];
 
     if (startInFirstBlock != 0) {     //startInFirstBlock ist nur dann != 0 falls was in dem Block übersprungen wird -> das muss in den puffer mitgenommen werden
-        blockDevice->read(startingBlock, firstPuffer);
-        memcpy(puffer, firstPuffer, startInFirstBlock);
+        if (startingBlock == fileInfo->fh) {
+            memcpy(middlePuffer, puffer, startInFirstBlock);
+        } else{
+            blockDevice->read(startingBlock, firstPuffer);
+            fileInfo->fh = startingBlock;
+            memcpy(middlePuffer, firstPuffer, startInFirstBlock);
+        }
     }
     //falls alle zu schreibenden Bytes in den aktuellen Block passen -> hole bestehende Bytes bis offset -> rest werden neue Bytes
     if (size <= freeSizeInCurrentBlock) {
         blockDevice->read(startingBlock, lastPuffer);
-        memcpy(puffer + endInLastBlock, lastPuffer + endInLastBlock, BLOCK_SIZE - endInLastBlock);
-        memcpy(puffer + startInFirstBlock, buf, size);
-        blockDevice->write(startingBlock, puffer);
+        memcpy(middlePuffer + endInLastBlock, lastPuffer + endInLastBlock, BLOCK_SIZE - endInLastBlock);
+        memcpy(middlePuffer + startInFirstBlock, buf, size);
+        blockDevice->write(startingBlock, middlePuffer);
         totalSize += size;
     } else {
-        memcpy(puffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
-        blockDevice->write(startingBlock, puffer);
+        memcpy(middlePuffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
+        blockDevice->write(startingBlock, middlePuffer);
         //buf muss um freeSizeInCurrentBlock nach vorne verschoben werden, size verringert sich, offset erhöht sich um freeSizeInCurrentBlock -> offset ist ab nun immer mod BLOCK_SIZE = 0
         totalSize += freeSizeInCurrentBlock + write(file, buf + freeSizeInCurrentBlock, size - freeSizeInCurrentBlock, offset + freeSizeInCurrentBlock, fileInfo);
     }
@@ -796,9 +801,9 @@ void MyOnDiskFS::writeOnDisk(unsigned int startBlock, const char* pufAll, unsign
 void MyOnDiskFS::readContainer() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
-        char puffer[s];
-        readOnDisk(indexes[i], puffer, indexes[i + 1] - indexes[i], s, 0, true, nullptr);
-        memcpy(sdfr->getStruct(i), puffer, s);
+        char ppuffer[s];
+        readOnDisk(indexes[i], ppuffer, indexes[i + 1] - indexes[i], s, 0, true, nullptr);
+        memcpy(sdfr->getStruct(i), ppuffer, s);
     }
 
     /*LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
