@@ -62,7 +62,7 @@ public:
 
     unsigned int write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo);
 
-    unsigned int read(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo);
+    unsigned int read(size_t dataSize, char *buf, size_t size, off_t offset, fuse_file_info *fileInfo);
 };
 
 #endif //MYFS_MYONDISKFS_H
