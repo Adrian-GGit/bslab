@@ -502,9 +502,36 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
 int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    index = searchForFile(path);
+    if (index >= 0) {
+        MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
+        if(newSize > file->dataSize) {
+            int missing = newSize - file->dataSize;
+            char puf[missing];
+            memset(puf, '0', missing);
+            write(file, puf, missing, file->dataSize, nullptr); //TODO nullptr funst so???
+        } else {
+            int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
+            int numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
 
-    RETURN(0);
+            int current = file->startBlock;
+            for (int i = 1; i <= numBlocksOld; i++) {
+                if (i >= numBlocksNew) {
+                    //TODO gucken ob fehler auftreten wenn next aufgerufen wird obwohl next gar nicht mehr im array ist (tritt bei allerletztes element auf)
+                    int next = sdfr->fat->FATTable[current];
+                    sdfr->fat->FATTable[current] = EOF;
+                    sdfr->dmap->freeBlocks[next] = '0';
+                    current = next;
+                }
+            }
+        }
+
+        //TODO falls nicht mehr genug speicher frei ist
+
+        file->dataSize = newSize;
+    }
+
+    RETURN(index);
 }
 
 /// @brief Truncate a file.
@@ -520,9 +547,36 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
 int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_info *fileInfo) {
     LOGM();
 
-    // TODO: [PART 2] Implement this!
+    index = searchForFile(path);
+    if (index >= 0) {
+        MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
+        if(newSize > file->dataSize) {
+            int missing = newSize - file->dataSize;
+            char puf[missing];
+            memset(puf, '0', missing);
+            write(file, puf, missing, file->dataSize, fileInfo);
+        } else {
+            int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
+            int numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
 
-    RETURN(0);
+            int current = file->startBlock;
+            for (int i = 1; i <= numBlocksOld; i++) {
+                if (i >= numBlocksNew) {
+                    //TODO gucken ob fehler auftreten wenn next aufgerufen wird obwohl next gar nicht mehr im array ist (tritt bei allerletztes element auf)
+                    int next = sdfr->fat->FATTable[current];
+                    sdfr->fat->FATTable[current] = EOF;
+                    sdfr->dmap->freeBlocks[next] = '0';
+                    current = next;
+                }
+            }
+        }
+
+        //TODO falls nicht mehr genug speicher frei ist
+
+        file->dataSize = newSize;
+    }
+
+    RETURN(index);
 }
 
 /// @brief Read a directory.
