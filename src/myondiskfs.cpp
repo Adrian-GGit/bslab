@@ -327,7 +327,7 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
     unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
     unsigned int startingBlock;
     if (build < 0) {
-        unsigned int startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
+        startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
     } else{
         startingBlock = indexes[build];
@@ -460,8 +460,8 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
 
     unsigned int freeSizeInCurrentBlock = BLOCK_SIZE - startInFirstBlock;
 
-    LOGF("size: %d | freeSizeInFirstBlock: %d | startinfirstblock: %d | numBlocksForward: %d",
-         size, freeSizeInCurrentBlock, startInFirstBlock, numBlocksForward);
+    //LOGF("size: %d | freeSizeInFirstBlock: %d | startinfirstblock: %d | numBlocksForward: %d",
+    //     size, freeSizeInCurrentBlock, startInFirstBlock, numBlocksForward);
 
     char firstPuffer[BLOCK_SIZE];
     char lastPuffer[BLOCK_SIZE];
@@ -669,7 +669,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
                 setIndexes();
                 fillFatAndDmapWhileBuild();
-                buildStructure();
+                buildStructure(0);
             }
         }
 
@@ -707,10 +707,8 @@ void MyOnDiskFS::setIndexes() {
 
 int MyOnDiskFS::searchForFile(const char* path) {
     LOGM();
-    //LOGF("count: %d", count);
     for (int i = 0; i < count; i++) {
         if (strcmp(path + 1, sdfr->root->fileInfos[i].fileName) == 0) {
-            //LOGF("GEFUNDEN %s", path + 1);
             RETURN(i);
         }
     }
@@ -792,9 +790,14 @@ void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     }
 }
 
+/*
+ * kommentiere Line mit buildStructure aus -> bessere Performance, allerdings bleiben dateien nach unmount nicht mehr erhalten
+ */
 void MyOnDiskFS::synchronize() {
     //alle sdfr blöcke werden aktualisiert
-    buildStructure();
+    LOG("Synchronize...");
+    buildStructure(1);
+    LOG("End of synchronize...");
 }
 
 unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned int numBlocksForward) {
@@ -806,8 +809,8 @@ unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned i
 
 //TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs
 
-void MyOnDiskFS::buildStructure() {
-    for (int i = 0; i < NUM_SDFR - 1; i++) {
+void MyOnDiskFS::buildStructure(int start) {
+    for (int i = start; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);

@@ -45,10 +45,8 @@ public:
     virtual void fuseDestroy();
 
     // TODO: Add methods of your file system here
-    void buildStructure();
-    void writeOnDisk(unsigned int startBlock, const char* buf, unsigned int numBlocks, size_t size, off_t offset, bool building, struct fuse_file_info *fileInfo);
+    void buildStructure(int start);
     void readContainer();
-    void readOnDisk(unsigned int startingBlock, char *puf, unsigned int numBlocks, size_t size, off_t offset, bool building, struct fuse_file_info *fileInfo);
     void setIndexes();
     int searchForFile(const char *path);
     void updateTime(int index, int timeIndex);
@@ -57,11 +55,8 @@ public:
     void fillFatAndDmap(int blocks[], size_t sizeArray, bool fill);
     void fillFatAndDmapWhileBuild();
     void synchronize();
-
     unsigned int getStartingBlock(unsigned int startingBlock, unsigned int numBlocksForward);
-
     unsigned int write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
-
     unsigned int read(size_t dataSize, char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
 };
 
