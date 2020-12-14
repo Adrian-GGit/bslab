@@ -71,6 +71,7 @@ struct SDFR {
     };
     myRoot* root = new myRoot;
 
+    //TODO eigentlich unnötig da man über getstruct -> sizeof(getStruct(i)) machen kann
     size_t getSize(int i) {
         switch (i) {
             case 0:

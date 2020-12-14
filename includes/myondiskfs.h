@@ -60,9 +60,9 @@ public:
 
     unsigned int getStartingBlock(unsigned int startingBlock, unsigned int numBlocksForward);
 
-    unsigned int write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo);
+    unsigned int write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
 
-    unsigned int read(size_t dataSize, char *buf, size_t size, off_t offset, fuse_file_info *fileInfo);
+    unsigned int read(size_t dataSize, char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
 };
 
 #endif //MYFS_MYONDISKFS_H
