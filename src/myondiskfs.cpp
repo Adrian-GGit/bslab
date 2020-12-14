@@ -798,17 +798,22 @@ unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned i
 //TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs
 
 void MyOnDiskFS::buildStructure() {
-    for (int i = 0; i < NUM_SDFR - 1; i++) {
+    for (int i = 0; i < 1; i++) {//NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
-        //writeOnDisk(sdfr->getIndex(i), buf, indexes[i + 1] - indexes[i], s, 0, true, nullptr);;
+        //writeOnDisk(sdfr->getIndex(i), buf, indexes[i + 1] - indexes[i], s, 0, true, nullptr);
+        LOGF("buf: %s", buf);
         MyFsFileInfo *file = new MyFsFileInfo;
         sdfr->dmap->freeBlocks[indexes[i]] = '1';
         file->noBlocks = 1;
         write(file, buf, s, 0, nullptr, i);
         delete file;
     }
+
+    /*char blockbuf[512];
+    blockDevice->read(0, blockbuf);
+    LOGF("blockbuf: %s", blockbuf);
 
     LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
@@ -819,7 +824,7 @@ void MyOnDiskFS::buildStructure() {
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
-    }
+    }*/
 }
 
 void MyOnDiskFS::readContainer() {
@@ -831,19 +836,21 @@ void MyOnDiskFS::readContainer() {
         memcpy(sdfr->getStruct(i), buf, s);
     }
 
-    LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
+    //TODO probiere jeden sdfr block einzeln zu lesen und über Log einzeln auswerten -> Fehler finden wieso dmap und fat nicht richtig gelesen werden
+
+    /*LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
     LOGF("len dmap: %d | len fat: %d | len root: %d",
          sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
-    for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
+    */for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
-    for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
+    /*for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
     }
     for (int i = sdfr->superBlock->myDATAindex + 1; i <= sdfr->superBlock->myDATAindex + 20; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
-    }
+    }*/
 }
 
 
