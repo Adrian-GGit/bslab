@@ -91,12 +91,9 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
         sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
         newData->noBlocks = 1;
+        sdfr->superBlock->existingFiles += 1;
 
         synchronize();
-
-        LOGF("datasize: %d", newData->dataSize);
-
-        sdfr->superBlock->existingFiles += 1;
         RETURN(0);
     }
 
@@ -140,6 +137,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         }
 
         sdfr->superBlock->existingFiles--;
+        synchronize();
         RETURN(0);
     }
 
@@ -162,6 +160,7 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
     if(index >= 0) {
         copyFileNameIntoArray(newpath + 1, sdfr->root->fileInfos[index].fileName);
         updateTime(index, 1);
+        synchronize();
         RETURN(0);
     }
     RETURN(index);
@@ -236,6 +235,7 @@ int MyOnDiskFS::fuseChmod(const char *path, mode_t mode) {
     if(index >= 0) {
         sdfr->root->fileInfos[index].mode = mode;
         updateTime(index, 1);
+        synchronize();
         RETURN(0);
     }
 
@@ -258,6 +258,7 @@ int MyOnDiskFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
         sdfr->root->fileInfos[index].userId = uid;
         sdfr->root->fileInfos[index].groupId = gid;
         updateTime(index, 1);
+        synchronize();
         RETURN(0);
     }
 
@@ -425,8 +426,8 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
 
         file->dataSize = offset + size > file->dataSize ? offset + size : file->dataSize;   //falls was überschrieben wird -> dataSize bleibt gleich, falls was dazukam offset + size
         finalSize -= missing;   //nötig??? eigentlich werden die 0en auch noch geschrieben
-        synchronize();
         updateTime(index, 0);
+        synchronize();
         return finalSize;
     }
     return index;
@@ -497,7 +498,6 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
     LOGM();
 
     index = searchForFile(path);
-    //LOGF("index: %d | openFiles: %d", index, openFiles);
     if (index >= 0) {
         openFiles--;
         updateTime(index, 0);
@@ -545,6 +545,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
 
         file->dataSize = newSize;
     }
+    synchronize();
 
     RETURN(index);
 }
@@ -590,6 +591,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
 
         file->dataSize = newSize;
     }
+    synchronize();
 
     RETURN(index);
 }
