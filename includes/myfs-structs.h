@@ -53,6 +53,8 @@ struct SDFR {
         unsigned int myFATindex;           //start von FAT
         unsigned int myRootindex;          //start von Root
         unsigned int myDATAindex;          //start von Data
+
+        int existingFiles = 0;      //number of existing files in fuse filesystem
     };
     mySuperblock* superBlock = new mySuperblock;      //in fuseDestory werden alle allokierten Variablen mit delete wieder gelöscht
 

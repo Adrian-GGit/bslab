@@ -64,9 +64,9 @@ MyInMemoryFS::~MyInMemoryFS() {
 int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
     LOGM();
 
-    LOGF("path: %s | count: %d | numdirs: %d\n", path, count, NUM_DIR_ENTRIES);
+    LOGF("path: %s | existingFiles: %d | numdirs: %d\n", path, existingFiles, NUM_DIR_ENTRIES);
 
-    if (count < NUM_DIR_ENTRIES) {
+    if (existingFiles < NUM_DIR_ENTRIES) {
         index = searchForFile(path);
         if(index >= 0) {
             RETURN(-EEXIST)
@@ -83,8 +83,8 @@ int MyInMemoryFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData.c_time = time(NULL);
         newData.userId = getuid();
         newData.groupId = getgid();
-        myFiles[count] = newData;
-        count += 1;
+        myFiles[existingFiles] = newData;
+        existingFiles += 1;
         RETURN(0);
     }
 
@@ -101,7 +101,7 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
     LOGM();
 
     bool fillHole = false;
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < existingFiles; i++) {
         if (strcmp(path + 1, myFiles[i].fileName) == 0) {
             fillHole = true;
             free(myFiles[i].data);
@@ -112,7 +112,7 @@ int MyInMemoryFS::fuseUnlink(const char *path) {
     }
 
     if(fillHole) {
-        count--;
+        existingFiles--;
         RETURN(0);
     }
 
@@ -158,8 +158,8 @@ int MyInMemoryFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		st_mtime: 	This is the time of the last modification to the contents of the file.
     //		st_mode: 	Specifies the mode of the file. This includes file type information (see Testing File Type) and
     //		            the file permission bits (see Permission Bits).
-    //		st_nlink: 	The number of hard links to the file. This count keeps track of how many directories have
-    //	             	entries for this file. If the count is ever decremented to zero, then the file itself is
+    //		st_nlink: 	The number of hard links to the file. This existingFiles keeps track of how many directories have
+    //	             	entries for this file. If the existingFiles is ever decremented to zero, then the file itself is
     //	             	discarded as soon as no process still holds it open. Symbolic links are not counted in the
     //	             	total.
     //		st_size:	This specifies the size of a regular file in bytes. For files that are really devices this field
@@ -239,7 +239,7 @@ int MyInMemoryFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
 /// @brief Open a file.
 ///
 /// Open a file for reading or writing. This includes checking the permissions of the current user and incrementing the
-/// open file count.
+/// open file existingFiles.
 /// You do not have to check file permissions, but can assume that it is always ok to access the file.
 /// \param [in] path Name of the file, starting with "/".
 /// \param [out] fileInfo Can be ignored in Part 1
@@ -322,7 +322,7 @@ int MyInMemoryFS::fuseWrite(const char *path, const char *buf, size_t size, off_
 
 /// @brief Close a file.
 ///
-/// In Part 1 this includes decrementing the open file count.
+/// In Part 1 this includes decrementing the open file existingFiles.
 /// \param [in] path Name of the file, starting with "/".
 /// \param [in] fileInfo Can be ignored in Part 1 .
 /// \return 0 on success, -ERRNO on failure.
@@ -413,7 +413,7 @@ int MyInMemoryFS::fuseReaddir(const char *path, void *buf, fuse_fill_dir_t fille
 
     if ( strcmp( path, "/" ) == 0 ) // If the user is trying to show the files/directories of the root directory show the following
     {
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < existingFiles; i++) {
             filler(buf, myFiles[i].fileName, NULL, 0);
         }
         RETURN(0);
@@ -465,7 +465,7 @@ void MyInMemoryFS::copyFileNameIntoArray(const char *fileName, char fileArray[])
 }
 
 int MyInMemoryFS::searchForFile(const char* path) {
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < existingFiles; i++) {
         if (strcmp(path + 1, myFiles[i].fileName) == 0) {
             RETURN(i);
         }
@@ -490,7 +490,7 @@ void MyInMemoryFS::updateTime(int index, int timeIndex) {
 }
 
 void MyInMemoryFS::unlinkAll() {
-    for (int i = count; i >= 0; i--) {
+    for (int i = existingFiles; i >= 0; i--) {
         free(myFiles[i].data);
         myFiles[i] = myFiles[i + 1];
     }

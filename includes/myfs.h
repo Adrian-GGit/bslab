@@ -25,7 +25,6 @@ protected:
 public:
     static MyFS *Instance();
 
-    int count = 0;
     int openFiles = 0;
     int index = -1;
     

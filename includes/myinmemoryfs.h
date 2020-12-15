@@ -25,6 +25,7 @@ public:
 
     // TODO: [PART 1] Add attributes of your file system here
     MyFsFileInfo myFiles[NUM_DIR_ENTRIES];
+    int existingFiles = 0;
 
     MyInMemoryFS();
     ~MyInMemoryFS();
