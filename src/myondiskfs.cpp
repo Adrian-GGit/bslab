@@ -790,11 +790,35 @@ void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
 
 /*
  * kommentiere Line mit buildStructure aus -> bessere Performance, allerdings bleiben dateien nach unmount nicht mehr erhalten
+ *
+ * synchronize aktualisiert dmap, fat und root im container, sodass die Daten auf dem RAM mit dem im Container übereinstimmen
  */
 void MyOnDiskFS::synchronize() {
-    //alle sdfr blöcke werden aktualisiert
+    /*LOG("Synchronize...");
+    //buildStructure(1);
+    if (syncronizeFatAndDmap) {
+        for (int i = 0; i < sizeof(syncFat) / sizeof(syncFat[0])) {
+            blockDevice->write(syncFat[i], syncFatBuf[i]);
+            blockDevice->write(syncDmap[i], syncDmapBuf[i]);
+        }
+    }
+    if (syncronizeRoot) {
+        for (int i = 0; i < sizeof(syncRoot) / sizeof(syncRoot[0])) {
+            blockDevice->write(syncRoot[i], syncRootBuf[i]);
+        }
+    }
+
+
+
+    LOG("End of synchronize...");
+    */
+}
+
+///used to calculate which block has to be replaced with which buffer and synchronize
+void MyOnDiskFS::calcBlocksAndSynchronize(int sdfrBlock, unsigned int indexOfInRamArray) {
     LOG("Synchronize...");
-    buildStructure(1);
+    int startIndex = indexes[sdfrBlock];
+
     LOG("End of synchronize...");
 }
 
