@@ -17,6 +17,11 @@
 #define NUM_BLOCKS 131072       //2^17
 #define EOF 131073              //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
 
+#define SUPERBLOCK 0
+#define DMAP 1
+#define FAT 2
+#define ROOT 3
+
 #define NUM_SDFR 5
 
 /*#define BLOCKSIZE_SUPERBLOCK 512

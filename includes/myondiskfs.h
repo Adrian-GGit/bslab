@@ -54,7 +54,7 @@ public:
     int findNextFreeBlock(int lastBlock = -1);
     void fillFatAndDmap(int blocks[], size_t sizeArray, bool fill);
     void fillFatAndDmapWhileBuild();
-    void synchronize();
+    void synchronizeSuperBlock();
     void calcBlocksAndSynchronize(int sdfrBlock, unsigned int indexOfInRamArray);
     unsigned int getStartingBlock(unsigned int startingBlock, unsigned int numBlocksForward);
     unsigned int write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);

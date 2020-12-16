@@ -89,11 +89,12 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->startBlock = nextFreeBlock;
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
-        sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
+        calcBlocksAndSynchronize(DMAP, nextFreeBlock);
+        //sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
         newData->noBlocks = 1;
+        calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);
         sdfr->superBlock->existingFiles += 1;
-
-        synchronize();
+        synchronizeSuperBlock();
         RETURN(0);
     }
 
@@ -131,13 +132,15 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
             //überschreibe letztes Element mit leerer MyFsFileInfo
             if (i == sdfr->superBlock->existingFiles - 1) {
                 sdfr->root->fileInfos[sdfr->superBlock->existingFiles - 1] = MyFsFileInfo();
+                calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles - 1);
             } else{
                 sdfr->root->fileInfos[i] = sdfr->root->fileInfos[i + 1];
+                calcBlocksAndSynchronize(ROOT, i);
             }
         }
 
         sdfr->superBlock->existingFiles--;
-        synchronize();
+        synchronizeSuperBlock();
         RETURN(0);
     }
 
@@ -159,8 +162,8 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
     index = searchForFile(path);
     if(index >= 0) {
         copyFileNameIntoArray(newpath + 1, sdfr->root->fileInfos[index].fileName);
+        calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
-        synchronize();
         RETURN(0);
     }
     RETURN(index);
@@ -234,8 +237,8 @@ int MyOnDiskFS::fuseChmod(const char *path, mode_t mode) {
     index = searchForFile(path);
     if(index >= 0) {
         sdfr->root->fileInfos[index].mode = mode;
+        calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
-        synchronize();
         RETURN(0);
     }
 
@@ -256,9 +259,10 @@ int MyOnDiskFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
     index = searchForFile(path);
     if(index >= 0) {
         sdfr->root->fileInfos[index].userId = uid;
+        calcBlocksAndSynchronize(ROOT, index);
         sdfr->root->fileInfos[index].groupId = gid;
+        calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
-        synchronize();
         RETURN(0);
     }
 
@@ -427,7 +431,6 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         file->dataSize = offset + size > file->dataSize ? offset + size : file->dataSize;   //falls was überschrieben wird -> dataSize bleibt gleich, falls was dazukam offset + size
         finalSize -= missing;   //nötig??? eigentlich werden die 0en auch noch geschrieben
         updateTime(index, 0);
-        synchronize();
         return finalSize;
     }
     return index;
@@ -451,8 +454,11 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
         int temp = startingBlock;
         //TODO falls startingBlock < 0 -> nomem
         sdfr->fat->FATTable[temp] = startingBlock = findNextFreeBlock();
+        calcBlocksAndSynchronize(FAT, temp);
         sdfr->fat->FATTable[startingBlock] = EOF;
+        calcBlocksAndSynchronize(FAT, startingBlock);
         sdfr->dmap->freeBlocks[startingBlock] = '1';
+        calcBlocksAndSynchronize(DMAP, startingBlock);
         file->noBlocks++;
     } else{
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
@@ -532,11 +538,14 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
             int current = file->startBlock;
             for (int i = 1; i <= numBlocksOld; i++) {
                 if (i >= numBlocksNew) {
-                    //TODO gucken ob fehler auftreten wenn next aufgerufen wird obwohl next gar nicht mehr im array ist (tritt bei allerletztes element auf)
                     int next = sdfr->fat->FATTable[current];
                     sdfr->fat->FATTable[current] = EOF;
-                    sdfr->dmap->freeBlocks[next] = '0';
-                    current = next;
+                    calcBlocksAndSynchronize(FAT, current);
+                    if (i < numBlocksOld) {
+                        sdfr->dmap->freeBlocks[next] = '0';
+                        calcBlocksAndSynchronize(DMAP, next);
+                        current = next;
+                    }
                 }
             }
         }
@@ -545,7 +554,6 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
 
         file->dataSize = newSize;
     }
-    synchronize();
 
     RETURN(index);
 }
@@ -578,11 +586,15 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
             int current = file->startBlock;
             for (int i = 1; i <= numBlocksOld; i++) {
                 if (i >= numBlocksNew) {
-                    //TODO gucken ob fehler auftreten wenn next aufgerufen wird obwohl next gar nicht mehr im array ist (tritt bei allerletztes element auf)
+                    LOGF("i: %d", i);
                     int next = sdfr->fat->FATTable[current];
                     sdfr->fat->FATTable[current] = EOF;
-                    sdfr->dmap->freeBlocks[next] = '0';
-                    current = next;
+                    calcBlocksAndSynchronize(FAT, current);
+                    if (i < numBlocksOld) {
+                        sdfr->dmap->freeBlocks[next] = '0';
+                        calcBlocksAndSynchronize(DMAP, next);
+                        current = next;
+                    }
                 }
             }
         }
@@ -591,7 +603,6 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
 
         file->dataSize = newSize;
     }
-    synchronize();
 
     RETURN(index);
 }
@@ -654,7 +665,6 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
             setIndexes();
             //read Container
-            //TODO EVTL fillFatAndDmap
             readContainer();
         } else if(ret == -ENOENT) {
             LOG("Container file does not exist, creating a new one");
@@ -696,7 +706,6 @@ void MyOnDiskFS::setIndexes() {
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr->getIndex(i);
         sdfr->setIndex(i, currentIndex + numBlocks);
-        //TODO indexes nötig??? -> statt indexes[i] einfach sdfr->getIndex(i);
         indexes[i] = currentIndex + numBlocks;
         size_t s = sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
@@ -771,60 +780,47 @@ void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     for (int i = 0; i < sizeArray; i++) {
         if (i == sizeArray - 1) {
                 sdfr->fat->FATTable[blocks[sizeArray - 1]] = EOF;
+                calcBlocksAndSynchronize(FAT, blocks[sizeArray - 1]);
             if (fill) {
                 sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '1';
+                calcBlocksAndSynchronize(DMAP, blocks[sizeArray - 1]);
             } else{
                 sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '0';
+                calcBlocksAndSynchronize(DMAP, blocks[sizeArray - 1]);
             }
         } else{
             if (fill) {
                 sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
+                calcBlocksAndSynchronize(FAT, blocks[i]);
                 sdfr->dmap->freeBlocks[blocks[i]] = '1';
+                calcBlocksAndSynchronize(DMAP, blocks[i]);
             } else{
                 sdfr->fat->FATTable[blocks[i]] = EOF;
+                calcBlocksAndSynchronize(FAT, blocks[i]);
                 sdfr->dmap->freeBlocks[blocks[i]] = '0';
+                calcBlocksAndSynchronize(DMAP, blocks[i]);
             }
         }
     }
 }
 
-/*
- * kommentiere Line mit buildStructure aus -> bessere Performance, allerdings bleiben dateien nach unmount nicht mehr erhalten
- *
- * synchronize aktualisiert dmap, fat und root im container, sodass die Daten auf dem RAM mit dem im Container übereinstimmen
- */
-void MyOnDiskFS::synchronize() {
-    /*LOG("Synchronize...");
-    //buildStructure(1);
-    if (syncronizeFatAndDmap) {
-        for (int i = 0; i < sizeof(syncFat) / sizeof(syncFat[0])) {
-            blockDevice->write(syncFat[i], syncFatBuf[i]);
-            blockDevice->write(syncDmap[i], syncDmapBuf[i]);
-        }
-    }
-    if (syncronizeRoot) {
-        for (int i = 0; i < sizeof(syncRoot) / sizeof(syncRoot[0])) {
-            blockDevice->write(syncRoot[i], syncRootBuf[i]);
-        }
-    }
-
-
-
-    LOG("End of synchronize...");
-    */
+void MyOnDiskFS::synchronizeSuperBlock() {
+    char buf[BLOCK_SIZE];
+    memcpy(buf, sdfr->getStruct(SUPERBLOCK), BLOCK_SIZE);
+    blockDevice->write(sdfr->superBlock->mySuperblockindex, buf);
 }
 
 ///used to calculate which block has to be replaced with which buffer and synchronize
 void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArray) {
     LOG("Synchronize...");
-    //size_t size = sdfr->getSize(dfrBlock);
     float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an Blöcke die der struct einnimmt
     float oneBlock = NUM_BLOCKS / numBlocks;    //für dmap und fat die Anzahl an Einträgen pro Block
     int startBlock = getBlocks(oneBlock, numBlocks, indexInArray);
     int realStartBlock = indexes[dfrBlock] + startBlock;
 
-    if (dfrBlock == 1 || dfrBlock == 2) {
-        LOGF("sync dmap/fat in %d", realStartBlock);
+    if (dfrBlock == DMAP || dfrBlock == FAT) {
+        //LOGF("startBlock: %d | indexes[dfrBlock]: %d", startBlock, indexes[dfrBlock]);
+        //LOGF("sync dmap/fat in %d", realStartBlock);
         writeDFR(dfrBlock, startBlock, realStartBlock);
     } else{
         oneBlock = NUM_DIR_ENTRIES / numBlocks; //für root die Anzahl an Einträgen
@@ -851,6 +847,7 @@ void MyOnDiskFS::writeDFR(int dfrBlock, int startBlock, int realStartBlock) {
 
 //calc blocknumber in container equivalt to indexinarray
 int MyOnDiskFS::getBlocks(float oneBlock, float numBlocks, int indexInArray) {
+    //LOGF("oneBlock: %d | numBlocks: %d | indexinarray: %d", oneBlock, numBlocks, indexInArray);
     float current = oneBlock;
     for (int i = 0; i < numBlocks; i++) {
         if (indexInArray <= current) {
@@ -878,10 +875,6 @@ void MyOnDiskFS::buildStructure(int start) {
         file->noBlocks = -1;
         write(file, buf, s, 0, nullptr, i);
         delete file;
-
-        float numBlocks = indexes[i + 1] - indexes[i];    //Anzahl an Blöcke die der struct einnimmt
-        float oneBlock = NUM_DIR_ENTRIES / numBlocks;    //für dmap und fat die Anzahl an Einträgen pro Block
-        LOGF("indexes[i+1]: %d | indexes[i]: %d | oneBlock: %f | numBlocks: %d", indexes[i + 1], indexes[i], oneBlock, numBlocks);
     }
 
     /*LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
