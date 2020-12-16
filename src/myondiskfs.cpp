@@ -812,7 +812,7 @@ void MyOnDiskFS::synchronizeSuperBlock() {
 
 ///used to calculate which block has to be replaced with which buffer and synchronize
 void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArray) {
-    LOG("Synchronize...");
+    //LOG("Synchronize...");
     float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an Blöcke die der struct einnimmt
     float oneBlock = NUM_BLOCKS / numBlocks;    //für dmap und fat die Anzahl an Einträgen pro Block
     int startBlock = getBlocks(oneBlock, numBlocks, indexInArray);
@@ -824,15 +824,14 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
         writeDFR(dfrBlock, startBlock, realStartBlock);
     } else{
         oneBlock = NUM_DIR_ENTRIES / numBlocks; //für root die Anzahl an Einträgen
+        startBlock = getBlocks(oneBlock, numBlocks, indexInArray);
         realStartBlock = indexes[dfrBlock] + getBlocks(oneBlock, numBlocks, indexInArray);
-        LOGF("sync root in %d", realStartBlock);
         writeDFR(dfrBlock, startBlock, realStartBlock);
-        if (startBlock < numBlocks) {
+        if (startBlock < numBlocks)
             writeDFR(dfrBlock, startBlock + 1, realStartBlock + 1);
-        }
     }
 
-    LOG("End of synchronize...");
+    //LOG("End of synchronize...");
 }
 
 //synchronize container with fat/dmap/root on ram
@@ -877,7 +876,29 @@ void MyOnDiskFS::buildStructure(int start) {
         delete file;
     }
 
-    /*LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
+    /*int count = 0;
+    int countt = 0;
+    LOGF("sdfr->dmap->freeBlocks[EOF]: %s", sdfr->dmap->freeBlocks[EOF]);
+    for (int i = 0; i < NUM_BLOCKS; i++) {
+        if (sdfr->dmap->freeBlocks[i] == '1') {
+            count++;
+        }
+        else
+            countt++;
+    }
+    LOGF("dmap einträge: %d | dmapp einträge: %d", count, countt);
+    count = 0;
+    countt = 0;
+    for (int i = 0; i < NUM_BLOCKS; i++) {
+        if (sdfr->fat->FATTable[i] != EOF) {
+            count++;
+        }
+        else
+            countt++;
+    }
+    LOGF("fat einträge: %d | fatt einträge: %d", count, countt);
+
+    LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
     LOGF("len dmap: %d | len fat: %d | len root: %d",
          sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
@@ -897,7 +918,26 @@ void MyOnDiskFS::readContainer() {
         memcpy(sdfr->getStruct(i), buf, s);
     }
 
-    /*LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
+    /*int count = 0;
+    int countt = 0;
+    for (int i = 0; i < NUM_BLOCKS; i++) {
+        if (sdfr->dmap->freeBlocks[i] == '1')
+            count++;
+        else
+            countt++;
+    }
+    LOGF("dmap einträge: %d | dmapp einträge: %d", count, countt);
+    count = 0;
+    countt = 0;
+    for (int i = 0; i < NUM_BLOCKS; i++) {
+        if (sdfr->fat->FATTable[i] != EOF)
+            count++;
+        else
+            countt++;
+    }
+    LOGF("fat einträge: %d | fatt einträge: %d", count, countt);
+
+    LOGF("SB index: %d | DMAP index: %d | fat index: %d | root index: %d | data index: %d",
          sdfr->superBlock->mySuperblockindex, sdfr->superBlock->myDMAPindex, sdfr->superBlock->myFATindex, sdfr->superBlock->myRootindex, sdfr->superBlock->myDATAindex);
     LOGF("len dmap: %d | len fat: %d | len root: %d",
          sizeof(sdfr->dmap->freeBlocks), sizeof(sdfr->fat->FATTable), sizeof(sdfr->root->fileInfos));
@@ -905,9 +945,6 @@ void MyOnDiskFS::readContainer() {
         LOGF("dmap %d: %c", i, sdfr->dmap->freeBlocks[i]);
     }
     for (int i = 0; i <= sdfr->superBlock->myDATAindex; i++) {
-        LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
-    }
-    for (int i = sdfr->superBlock->myDATAindex + 1; i <= sdfr->superBlock->myDATAindex + 20; i++) {
         LOGF("fat: %d: %d", i, sdfr->fat->FATTable[i]);
     }*/
 }
