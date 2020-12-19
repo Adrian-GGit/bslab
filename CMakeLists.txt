@@ -25,8 +25,8 @@ add_executable(unittests src/blockdevice.cpp
         src/myondiskfs.cpp
         testing/main.cpp
         testing/utest-blockdevice.cpp
-        testing/utest-myfs.cpp
-        testing/tools.cpp testing/itest.cpp)
+        testing/ownintegrationtests-myfs.cpp
+        testing/tools.cpp testing/itest.cpp testing/unittestsMyfs.cpp)
 
 add_executable(integrationtests
         src/blockdevice.cpp
