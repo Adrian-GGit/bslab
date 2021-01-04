@@ -347,11 +347,9 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
 
     char tempBuf[size];
     char blockBuffer[BLOCK_SIZE];
-    unsigned int numReadingBlock = leftBytes % BLOCK_SIZE == 0 ?
-                                   leftBytes / BLOCK_SIZE : leftBytes / BLOCK_SIZE + 1;
     unsigned int count = 0;
 
-    for (int i = 0; i < numReadingBlock; i++) {
+    while (true) {
         if (build < 0) {
             if (startingBlock == fileInfo->fh) {
                 memcpy(blockBuffer, puffer, BLOCK_SIZE);
