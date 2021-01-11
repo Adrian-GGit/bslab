@@ -33,7 +33,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
     //alle Blöcke sind noch frei
     for (int i = 0; i < NUM_BLOCKS; i++) {
         sdfr->dmap->freeBlocks[i] = '0';
-        sdfr->fat->FATTable[i] = EOF;   //TODO benötigt??!
+        sdfr->fat->FATTable[i] = EOF;
     }
 
 }
@@ -70,7 +70,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
     int nextFreeBlock = findNextFreeBlock();
 
-    if (sdfr->superBlock->existingFiles < NUM_DIR_ENTRIES && nextFreeBlock >= 0) { //>= 0 -> mem vorhanden
+    if (sdfr->superBlock->existingFiles < NUM_DIR_ENTRIES && nextFreeBlock >= 0) { //>= 0 -> mem vorhanden um neue Datei anzulegen
         index = searchForFile(path);
         if(index >= 0) {
             RETURN(-EEXIST)
@@ -90,7 +90,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
         calcBlocksAndSynchronize(DMAP, nextFreeBlock);
-        //sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer 0 enthalten
+        //sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer EOF enthalten
         newData->noBlocks = 1;
         calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);
         sdfr->superBlock->existingFiles += 1;
@@ -116,18 +116,17 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
     if (index >= 0) {
         MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
         size_t s = file->dataSize;
-        if (s != 0)
+        if (s != 0) //ist s == 0 ist numBlocks immer 1
             numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
         int blocks[numBlocks];
         int currentBlock = file->startBlock;
-        for (int i = 0; i < numBlocks; i++) {
+        for (int i = 0; i < numBlocks; i++) { //füllt array blocks mit allen Indizes von fat bzw dmap auf
             blocks[i] = currentBlock;
             currentBlock = sdfr->fat->FATTable[currentBlock];
         }
         //reset dmap and fat
         fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]), false);
         //reset element in root and fill gap
-        //last element can't be overwritten with i + 1 -> edge case
         for (int i = index; i < sdfr->superBlock->existingFiles; i++) {
             //überschreibe letztes Element mit leerer MyFsFileInfo
             if (i == sdfr->superBlock->existingFiles - 1) {
@@ -259,7 +258,7 @@ int MyOnDiskFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
     index = searchForFile(path);
     if(index >= 0) {
         sdfr->root->fileInfos[index].userId = uid;
-        calcBlocksAndSynchronize(ROOT, index);
+        calcBlocksAndSynchronize(ROOT, index); //TODO eigentlich unnötig, da 2 Zeilen weiter dasselbe gemacht wird
         sdfr->root->fileInfos[index].groupId = gid;
         calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
@@ -285,7 +284,7 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
         RETURN(-ENOENT);
     }
 
-    fileInfo->fh = -1;  //nothing relevant in the puffer ->
+    fileInfo->fh = -1;  //nothing relevant in the puffer
 
     openFiles++;
     updateTime(index, 0);
@@ -524,14 +523,16 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
     index = searchForFile(path);
     if (index >= 0) {
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
+        int numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
         if(newSize > file->dataSize) {
+            numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
             int missing = newSize - file->dataSize;
             char puf[missing];
             memset(puf, '0', missing);
             write(file, puf, missing, file->dataSize, nullptr, -1);
+
         } else {
             int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
-            int numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
 
             int current = file->startBlock;
             for (int i = 1; i <= numBlocksOld; i++) {
@@ -551,6 +552,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
         //TODO falls nicht mehr genug speicher frei ist
 
         file->dataSize = newSize;
+        file->noBlocks = numBlocksNew;
     }
 
     RETURN(index);
@@ -572,6 +574,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
     index = searchForFile(path);
     if (index >= 0) {
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
+        int numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
         if(newSize > file->dataSize) {
             int missing = newSize - file->dataSize;
             char puf[missing];
@@ -579,7 +582,6 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
             write(file, puf, missing, file->dataSize, fileInfo, -1);
         } else {
             int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
-            int numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
 
             int current = file->startBlock;
             for (int i = 1; i <= numBlocksOld; i++) {
@@ -600,6 +602,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
         //TODO falls nicht mehr genug speicher frei ist
 
         file->dataSize = newSize;
+        file->noBlocks = numBlocksNew;
     }
 
     RETURN(index);
@@ -698,14 +701,14 @@ void MyOnDiskFS::fuseDestroy() {
 }
 
 void MyOnDiskFS::setIndexes() {
-    int currentIndex = 0;
+    int currentIndex;
     unsigned int numBlocks = 0;
 
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr->getIndex(i);
         sdfr->setIndex(i, currentIndex + numBlocks);
         indexes[i] = currentIndex + numBlocks;
-        size_t s = sdfr->getSize(i);
+        size_t s = sizeof(sdfr->getStruct(i));//sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
     }
 }
@@ -748,7 +751,7 @@ void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     fileArray[index] = '\0';
 }
 
-int MyOnDiskFS::findNextFreeBlock(int lastBlock) {  //TODO benötigt?!?
+int MyOnDiskFS::findNextFreeBlock(int lastBlock) { //TODO parameter benötigt? - falls nicht lastBlock mit 0 init und in prototyp parameter entfernen
     lastBlock++; //current as parameter is the current block which is definitely not free
 
     while(true) {
@@ -774,6 +777,7 @@ void MyOnDiskFS::fillFatAndDmapWhileBuild() {
     }
 }
 
+//Funktion um Fat und Dmap an allen indizes zu füllen welche in blocks stehen
 void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     for (int i = 0; i < sizeArray; i++) {
         if (i == sizeArray - 1) {
@@ -834,7 +838,7 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
 
 //synchronize container with fat/dmap/root on ram
 void MyOnDiskFS::writeDFR(int dfrBlock, int startBlock, int realStartBlock) {
-    size_t size = sdfr->getSize(dfrBlock);
+    size_t size = sizeof(sdfr->getStruct(dfrBlock));//sdfr->getSize(dfrBlock);
     char buf[size];
     memcpy(buf, sdfr->getStruct(dfrBlock), size);
     char puffer[BLOCK_SIZE];
@@ -865,7 +869,7 @@ unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned i
 
 void MyOnDiskFS::buildStructure(int start) {
     for (int i = start; i < NUM_SDFR - 1; i++) {
-        size_t s = sdfr->getSize(i);
+        size_t s = sizeof(sdfr->getStruct(i));//sdfr->getSize(i);
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
         MyFsFileInfo *file = new MyFsFileInfo;
@@ -910,7 +914,7 @@ void MyOnDiskFS::buildStructure(int start) {
 
 void MyOnDiskFS::readContainer() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
-        size_t s = sdfr->getSize(i);
+        size_t s = sizeof(sdfr->getStruct(i));//sdfr->getSize(i);
         char buf[s];
         read(s, buf, s, 0, nullptr, i);
         memcpy(sdfr->getStruct(i), buf, s);
