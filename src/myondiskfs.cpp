@@ -708,7 +708,7 @@ void MyOnDiskFS::setIndexes() {
         currentIndex = sdfr->getIndex(i);
         sdfr->setIndex(i, currentIndex + numBlocks);
         indexes[i] = currentIndex + numBlocks;
-        size_t s = sizeof(sdfr->getStruct(i));//sdfr->getSize(i);
+        size_t s = sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
     }
 }
@@ -838,7 +838,7 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
 
 //synchronize container with fat/dmap/root on ram
 void MyOnDiskFS::writeDFR(int dfrBlock, int startBlock, int realStartBlock) {
-    size_t size = sizeof(sdfr->getStruct(dfrBlock));//sdfr->getSize(dfrBlock);
+    size_t size = sdfr->getSize(dfrBlock);
     char buf[size];
     memcpy(buf, sdfr->getStruct(dfrBlock), size);
     char puffer[BLOCK_SIZE];
@@ -869,7 +869,7 @@ unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned i
 
 void MyOnDiskFS::buildStructure(int start) {
     for (int i = start; i < NUM_SDFR - 1; i++) {
-        size_t s = sizeof(sdfr->getStruct(i));//sdfr->getSize(i);
+        size_t s = sdfr->getSize(i);
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
         MyFsFileInfo *file = new MyFsFileInfo;
@@ -914,7 +914,7 @@ void MyOnDiskFS::buildStructure(int start) {
 
 void MyOnDiskFS::readContainer() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {
-        size_t s = sizeof(sdfr->getStruct(i));//sdfr->getSize(i);
+        size_t s = sdfr->getSize(i);
         char buf[s];
         read(s, buf, s, 0, nullptr, i);
         memcpy(sdfr->getStruct(i), buf, s);
