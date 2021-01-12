@@ -447,15 +447,12 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
 
     //hole neuen Block falls aktueller Block voll ist
     if (numBlocksForward == file->noBlocks) {
-        startingBlock = getStartingBlock(startingBlock, numBlocksForward - 1);  //numBlocksForward-1 da numBlocksForward den Block repräsentiert, der erst noch allokiert werden muss
-        int temp = startingBlock;
+        int previousBlock = getStartingBlock(startingBlock, numBlocksForward - 1);  //numBlocksForward-1 da numBlocksForward den Block repräsentiert, der erst noch allokiert werden muss
+        startingBlock = findNextFreeBlock();
         //TODO falls startingBlock < 0 -> nomem
-        sdfr->fat->FATTable[temp] = startingBlock = findNextFreeBlock();
-        calcBlocksAndSynchronize(FAT, temp);
-        sdfr->fat->FATTable[startingBlock] = EOF;
-        calcBlocksAndSynchronize(FAT, startingBlock);
-        sdfr->dmap->freeBlocks[startingBlock] = '1';
-        calcBlocksAndSynchronize(DMAP, startingBlock);
+
+        int blocks[] = {previousBlock, static_cast<int>(startingBlock)};
+        fillFatAndDmap(blocks, 2, true);
         file->noBlocks++;
     } else{
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
@@ -781,17 +778,19 @@ void MyOnDiskFS::fillFatAndDmapWhileBuild() {
 void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     for (int i = 0; i < sizeArray; i++) {
         if (i == sizeArray - 1) {
-                sdfr->fat->FATTable[blocks[sizeArray - 1]] = EOF;
+                LOGF("i: %d | blocks[i]: %d", i, blocks[i]);
+                sdfr->fat->FATTable[blocks[i]] = EOF;
                 calcBlocksAndSynchronize(FAT, blocks[sizeArray - 1]);
             if (fill) {
-                sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '1';
+                sdfr->dmap->freeBlocks[blocks[i]] = '1';
                 calcBlocksAndSynchronize(DMAP, blocks[sizeArray - 1]);
             } else{
-                sdfr->dmap->freeBlocks[blocks[sizeArray - 1]] = '0';
+                sdfr->dmap->freeBlocks[blocks[i]] = '0';
                 calcBlocksAndSynchronize(DMAP, blocks[sizeArray - 1]);
             }
         } else{
             if (fill) {
+                LOGF("i: %d | blocks[i]: %d", i, blocks[i]);
                 sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
                 calcBlocksAndSynchronize(FAT, blocks[i]);
                 sdfr->dmap->freeBlocks[blocks[i]] = '1';
