@@ -310,9 +310,7 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 /// -ERRNO on failure.
 int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
-
     //TODO fragen wie das mit read mitten aus einer file funktionieren soll: size ist immer 4096
-
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
     index = searchForFile(path);
     size_t finalSize = 0;
@@ -358,7 +356,6 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
         } else{
             blockDevice->read(startingBlock, blockBuffer);
         }
-
         if (leftBytes <= BLOCK_SIZE || size <= BLOCK_SIZE) {
             unsigned int rest = leftBytes > size ? size : leftBytes;
             memcpy((tempBuf + count), blockBuffer, rest);
@@ -378,15 +375,6 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
         leftBytes -= BLOCK_SIZE;
         count += BLOCK_SIZE;
     }
-
-    //LOGF("num1: %d | size: %d | startinfirstblock: %d", (startInFirstBlock + size) / BLOCK_SIZE, size, startInFirstBlock);
-
-    /*
-        LOGF("blockBuffer[512]: %s | blockBuffer[512] + offset: %s | buf: %s | buf + counter: %s", blockBuffer, blockBuffer + offset, buf, buf + counter);
-        LOGF("blockBuffer: %s", blockBuffer);
-        LOGF("startingBlock: %d | numWritingBlock: %d | currentSize: %d | counter: %d | size: %d | dataSize: %d | offset: %d",
-             startingBlock, numReadingBlocks, currentSize, counter, size, dataSize, offset);
-*/
 }
 
 /// @brief Write to a file.
@@ -450,7 +438,6 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
         int previousBlock = getStartingBlock(startingBlock, numBlocksForward - 1);  //numBlocksForward-1 da numBlocksForward den Block repräsentiert, der erst noch allokiert werden muss
         startingBlock = findNextFreeBlock();
         //TODO falls startingBlock < 0 -> nomem
-
         int blocks[] = {previousBlock, static_cast<int>(startingBlock)};
         fillFatAndDmap(blocks, 2, true);
         file->noBlocks++;
@@ -459,7 +446,6 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
     }
 
     unsigned int freeSizeInCurrentBlock = BLOCK_SIZE - startInFirstBlock;
-
     char firstPuffer[BLOCK_SIZE];
     char lastPuffer[BLOCK_SIZE];
     char middlePuffer[BLOCK_SIZE];
