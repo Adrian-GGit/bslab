@@ -438,7 +438,7 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
         int previousBlock = getStartingBlock(startingBlock, numBlocksForward - 1);  //numBlocksForward-1 da numBlocksForward den Block repräsentiert, der erst noch allokiert werden muss
         startingBlock = findNextFreeBlock();
         //TODO falls startingBlock < 0 -> nomem
-        int blocks[] = {previousBlock, static_cast<int>(startingBlock)};
+        int blocks[] = {previousBlock, (int) startingBlock};
         fillFatAndDmap(blocks, 2, true);
         file->noBlocks++;
     } else{
