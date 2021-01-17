@@ -66,7 +66,7 @@ MyOnDiskFS::~MyOnDiskFS() {
 int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
     LOGM();
 
-    LOGF("path: %s | existingFiles: %d | numdirs: %d\n", path, sdfr->superBlock->existingFiles, NUM_DIR_ENTRIES);
+    LOGF("path: %s | existingFiles: %d | numdirs: %d | openFiles: %d\n", path, sdfr->superBlock->existingFiles, NUM_DIR_ENTRIES, openFiles);
 
     int nextFreeBlock = findNextFreeBlock();
 

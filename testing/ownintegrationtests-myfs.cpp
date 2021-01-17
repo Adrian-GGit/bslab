@@ -20,6 +20,7 @@
 
 #define FILENAME "file"
 #define NEWFILENAME "file2"
+#define UNLINKFILE "unlinkOpenedFile"
 #define SMALL_SIZE 1024
 #define LARGE_SIZE 20*1024*1024
 
@@ -455,17 +456,14 @@ TEST_CASE("T-ut10", "[Part_2]") {
     REQUIRE(unlink(FILENAME) >= 0);
 }
 
-TEST_CASE("T-ut11", "[Part_2]") {
+/*TEST_CASE("T-ut11", "[Part_2]") {
     printf("Testcase integrationtest 11: unlink file although its open\n");
     int fd;
+    char* w= new char[SMALL_SIZE];
+    memset(w, 0, SMALL_SIZE);
 
-    // remove file (just to be sure)
-    unlink(FILENAME);
-
-    // Create file
-    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    unlink(UNLINKFILE);
+    fd = open(UNLINKFILE, O_EXCL | O_RDWR | O_CREAT, 0666);
     REQUIRE(fd >= 0);
-
-    // remove file
-    REQUIRE(unlink(FILENAME) >= 0);
-}
+    REQUIRE(unlink(UNLINKFILE) >= 0);
+}*/
