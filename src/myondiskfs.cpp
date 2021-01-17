@@ -115,6 +115,11 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
 
     if (index >= 0) {
         MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
+        if (file->open) {   //schließe Datei falls diese noch offen ist
+            sdfr->root->fileInfos[index].open = false;
+            openFiles--;
+            updateTime(index, 0);
+        }
         size_t s = file->dataSize;
         if (s != 0) //ist s == 0 ist numBlocks immer 1
             numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
@@ -286,6 +291,7 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 
     fileInfo->fh = -1;  //nothing relevant in the puffer
 
+    sdfr->root->fileInfos[index].open = true;
     openFiles++;
     updateTime(index, 0);
     RETURN(0);
@@ -485,7 +491,9 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
 
     index = searchForFile(path);
     if (index >= 0) {
+        sdfr->root->fileInfos[index].open = false;
         openFiles--;
+        fileInfo->fh = -1;
         updateTime(index, 0);
     }
 
@@ -516,9 +524,21 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
 
         } else {
             int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
-
+            int toDelete = numBlocksOld - numBlocksNew;
             int current = file->startBlock;
-            for (int i = 1; i <= numBlocksOld; i++) {
+            for (int i = 0; i < numBlocksOld; i++) {
+                int next = sdfr->fat->FATTable[current];
+                if (i >= numBlocksOld - toDelete - 1) {
+                    sdfr->fat->FATTable[current] = EOF;
+                    calcBlocksAndSynchronize(FAT, current);
+                }
+                if (i >= numBlocksOld - toDelete) {
+                    sdfr->dmap->freeBlocks[current] = '0';
+                    calcBlocksAndSynchronize(DMAP, current);
+                }
+                current = next;
+            }
+            /*for (int i = 1; i <= numBlocksOld; i++) {
                 if (i >= numBlocksNew) {
                     int next = sdfr->fat->FATTable[current];
                     sdfr->fat->FATTable[current] = EOF;
@@ -529,7 +549,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
                         current = next;
                     }
                 }
-            }
+            }*/
         }
 
         //TODO falls nicht mehr genug speicher frei ist
@@ -565,9 +585,21 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
             write(file, puf, missing, file->dataSize, fileInfo, -1);
         } else {
             int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
-
+            int toDelete = numBlocksOld - numBlocksNew;
             int current = file->startBlock;
-            for (int i = 1; i <= numBlocksOld; i++) {
+            for (int i = 0; i < numBlocksOld; i++) {
+                int next = sdfr->fat->FATTable[current];
+                if (i >= numBlocksOld - toDelete - 1) {
+                    sdfr->fat->FATTable[current] = EOF;
+                    calcBlocksAndSynchronize(FAT, current);
+                }
+                if (i >= numBlocksOld - toDelete) {
+                    sdfr->dmap->freeBlocks[current] = '0';
+                    calcBlocksAndSynchronize(DMAP, current);
+                }
+                current = next;
+            }
+            /*for (int i = 1; i <= numBlocksOld; i++) {
                 if (i >= numBlocksNew) {
                     LOGF("i: %d", i);
                     int next = sdfr->fat->FATTable[current];
@@ -579,9 +611,10 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
                         current = next;
                     }
                 }
-            }
+            }*/
         }
 
+        LOG("hii");
         //TODO falls nicht mehr genug speicher frei ist
 
         file->dataSize = newSize;
@@ -679,7 +712,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 void MyOnDiskFS::fuseDestroy() {
     LOGM();
 
-    delete _instance; //TODO nötig?!??!?!
+    delete _instance; //TODO nötig?!?!?!
 
 }
 
@@ -722,6 +755,7 @@ void MyOnDiskFS::updateTime(int index, int timeIndex) {
     }
 }
 
+//TODO Methode aus String.h
 void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     index = 0;
 
@@ -848,6 +882,10 @@ unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned i
         startingBlock = sdfr->fat->FATTable[startingBlock];
     }
     return startingBlock;
+}
+
+bool MyOnDiskFS::enoughStorage(size_t neededStorage) {
+
 }
 
 //TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs

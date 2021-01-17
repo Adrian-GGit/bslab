@@ -14,7 +14,7 @@
 #define NUM_DIR_ENTRIES 64
 #define NUM_OPEN_FILES 64
 
-#define NUM_BLOCKS 131072       //2^17
+#define NUM_BLOCKS 131072       //2^17 - //TODO ca. 20 * 2¹⁷
 #define EOF 131073              //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
 
 #define SUPERBLOCK 0
@@ -35,11 +35,13 @@
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
     size_t dataSize = 0;
-//    size_t oldDataSize = 0;
+//    size_t oldDataSize = 0;   //TODO unnötig?!
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
     unsigned int noBlocks = 0;      //beschreibt bei ondisk wie viele Blöcke der size BLOCK_SIZE benutzt werden
     unsigned int userId;
     unsigned int groupId;
+
+    bool open = false;
 
     mode_t mode;
 
@@ -78,7 +80,6 @@ struct SDFR {
     };
     myRoot* root = new myRoot;
 
-    //TODO eigentlich unnötig da man über getstruct -> sizeof(getStruct(i)) machen kann
     size_t getSize(int i) {
         switch (i) {
             case 0:

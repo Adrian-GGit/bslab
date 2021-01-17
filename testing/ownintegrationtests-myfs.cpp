@@ -240,11 +240,10 @@ TEST_CASE("T-ut5", "[Part_2]") {
     REQUIRE(memcmp(buf5, buf8, strlen(buf5)) == 0);
     REQUIRE(close(fd) >= 0);
 
-    REQUIRE(unlink(FILENAME) >= 0);
-
     delete [] buf6;
     delete [] buf7;
     delete [] buf8;
+    REQUIRE(unlink(FILENAME) >= 0);
 }
 
 TEST_CASE("T-ut6", "[Part_2]") {
@@ -287,10 +286,9 @@ TEST_CASE("T-ut6", "[Part_2]") {
     REQUIRE(memcmp(buf4, buf6, strlen(buf4)) == 0);
     REQUIRE(close(fd) >= 0);
 
-    REQUIRE(unlink(FILENAME) >= 0);
-
     delete [] buf5;
     delete [] buf6;
+    REQUIRE(unlink(FILENAME) >= 0);
 }
 
 TEST_CASE("T-ut7", "[Part_2]") {
@@ -319,9 +317,8 @@ TEST_CASE("T-ut7", "[Part_2]") {
     REQUIRE(memcmp(buf3, buf4, 514) == 0);
     REQUIRE(close(fd) >= 0);
 
-    REQUIRE(unlink(FILENAME) >= 0);
-
     delete [] buf4;
+    REQUIRE(unlink(FILENAME) >= 0);
 }
 
 TEST_CASE("T-ut8", "[Part_2]") {
@@ -371,6 +368,7 @@ TEST_CASE("T-ut8", "[Part_2]") {
 
     delete [] buf6;
     delete [] buf7;
+    REQUIRE(unlink(FILENAME) >= 0);
 }
 
 /*
@@ -412,6 +410,7 @@ TEST_CASE("T-ut9", "[Part_2]") {
 
     delete [] buf4;
     delete [] buf5;
+    REQUIRE(unlink(FILENAME) >= 0);
 }
 
 TEST_CASE("T-ut10", "[Part_2]") {
@@ -453,4 +452,20 @@ TEST_CASE("T-ut10", "[Part_2]") {
 
     delete [] buf5;
     delete [] buf6;
+    REQUIRE(unlink(FILENAME) >= 0);
+}
+
+TEST_CASE("T-ut11", "[Part_2]") {
+    printf("Testcase integrationtest 11: unlink file although its open\n");
+    int fd;
+
+    // remove file (just to be sure)
+    unlink(FILENAME);
+
+    // Create file
+    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+
+    // remove file
+    REQUIRE(unlink(FILENAME) >= 0);
 }
