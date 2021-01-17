@@ -62,7 +62,7 @@ public:
     int getBlocks(float oneBlock, float numBlocks, int indexInArray);
     void writeDFR(int dfrBlock, int startBlock, int realStartBlock);
 
-    bool enoughStorage(size_t neededStorage);
+    bool enoughStorage(int index, size_t neededStorage);
 };
 
 #endif //MYFS_MYONDISKFS_H
