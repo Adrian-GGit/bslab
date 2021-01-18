@@ -44,7 +44,6 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
 MyOnDiskFS::~MyOnDiskFS() {
     // free block device object
     delete this->blockDevice;
-    delete[] puffer;
     delete sdfr->superBlock;
     delete sdfr->dmap;
     delete sdfr->fat;
