@@ -52,7 +52,6 @@ public:
     void setIndexes();
     int searchForFile(const char *path);
     void updateTime(int index, int timeIndex);
-    void copyFileNameIntoArray(const char *fileName, char *fileArray);
     int findNextFreeBlock(int lastBlock = -1);
     void fillFatAndDmap(int blocks[], size_t sizeArray, bool fill);
     void fillFatAndDmapWhileBuild();
@@ -63,8 +62,8 @@ public:
     unsigned int read(size_t dataSize, char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
     int getBlocks(float oneBlock, float numBlocks, int indexInArray);
     void writeDFR(int dfrBlock, int startBlock, int realStartBlock);
-
     bool enoughStorage(int index, size_t neededStorage);
+    void checkAndCloseFile(MyFsFileInfo* file);
 };
 
 #endif //MYFS_MYONDISKFS_H

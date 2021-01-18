@@ -75,7 +75,6 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
             RETURN(-ENAMETOOLONG)
         }
         MyFsFileInfo* newData = &(sdfr->root->fileInfos[sdfr->superBlock->existingFiles]);
-        //copyFileNameIntoArray(path + 1, newData->fileName);
         strcpy(newData->fileName, path + 1);
         newData->mode = mode;  //root: read,write,execute; group: read,execute; others:read,execute -> to give everyone all perms: 0777
         newData->a_time = time(NULL);    //current time
@@ -87,7 +86,6 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
         calcBlocksAndSynchronize(DMAP, nextFreeBlock);
-        //sdfr->fat->FATTable[nextFreeBlock] = EOF; //TODO eigentlich unnötig, da im fat die freien Blöcke immer EOF enthalten
         newData->noBlocks = 1;
         calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);
         sdfr->superBlock->existingFiles += 1;
@@ -112,11 +110,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
 
     if (index >= 0) {
         MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
-        if (file->open) {   //schließe Datei falls diese noch offen ist
-            sdfr->root->fileInfos[index].open = false;
-            openFiles--;
-            updateTime(index, 0);
-        }
+        checkAndCloseFile(file);
         size_t s = file->dataSize;
         if (s != 0) //ist s == 0 ist numBlocks immer 1
             numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
@@ -131,15 +125,9 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         //reset element in root and fill gap
         for (int i = index; i < sdfr->superBlock->existingFiles; i++) {
             //überschreibe letztes Element mit leerer MyFsFileInfo
-            if (i == sdfr->superBlock->existingFiles - 1) {
-                sdfr->root->fileInfos[sdfr->superBlock->existingFiles - 1] = MyFsFileInfo();
-                calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles - 1);
-            } else{
-                sdfr->root->fileInfos[i] = sdfr->root->fileInfos[i + 1];
-                calcBlocksAndSynchronize(ROOT, i);
-            }
+            sdfr->root->fileInfos[i] = i == sdfr->superBlock->existingFiles - 1 ? MyFsFileInfo() : sdfr->root->fileInfos[i + 1];
+            calcBlocksAndSynchronize(ROOT, i);
         }
-
         sdfr->superBlock->existingFiles--;
         synchronizeSuperBlock();
         RETURN(0);
@@ -162,7 +150,6 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
 
     index = searchForFile(path);
     if(index >= 0) {
-        //copyFileNameIntoArray(newpath + 1, sdfr->root->fileInfos[index].fileName);
         strcpy(sdfr->root->fileInfos[index].fileName, newpath + 1);
         calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
@@ -488,10 +475,8 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
 
     index = searchForFile(path);
     if (index >= 0) {
-        sdfr->root->fileInfos[index].open = false;
-        openFiles--;
+        checkAndCloseFile(&(sdfr->root->fileInfos[index]));
         fileInfo->fh = -1;
-        updateTime(index, 0);
     }
 
     RETURN(index);
@@ -719,19 +704,6 @@ void MyOnDiskFS::updateTime(int index, int timeIndex) {
     }
 }
 
-//TODO Methode aus String.h
-/*void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
-    index = 0;
-
-    while(*fileName != '\0') {
-        fileArray[index] = *fileName;
-        fileName++;
-        index++;
-    }
-
-    fileArray[index] = '\0';
-}*/
-
 int MyOnDiskFS::findNextFreeBlock(int lastBlock) { //TODO parameter benötigt? - falls nicht lastBlock mit 0 init und in prototyp parameter entfernen
     lastBlock++; //current as parameter is the current block which is definitely not free
 
@@ -863,6 +835,14 @@ bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
             return true;
         if (currentBlock >= NUM_BLOCKS)
             return false;
+    }
+}
+
+void MyOnDiskFS::checkAndCloseFile(MyFsFileInfo* file) {
+    if (file->open) {   //schließe Datei falls diese noch offen ist
+        sdfr->root->fileInfos[index].open = false;
+        openFiles--;
+        updateTime(index, 0);
     }
 }
 
