@@ -61,7 +61,7 @@ public:
     unsigned int write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
     unsigned int read(size_t dataSize, char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
     int getBlocks(float oneBlock, float numBlocks, int indexInArray);
-    void writeDFR(int dfrBlock, int startBlock, int realStartBlock);
+    void writeDFR(int dfrBlock, int startBlock, int realStartBlock, float oneBlock);
     bool enoughStorage(int index, size_t neededStorage);
     void checkAndCloseFile(MyFsFileInfo* file);
 };
