@@ -185,22 +185,28 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
     //		            refers to.
 
     index = searchForFile(path);
-    statbuf->st_uid = sdfr->root->fileInfos[index].userId;
-    statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
-    updateTime(index, 1);
-    statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
-    statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
 
     int ret= 0;
 
     if ( strcmp( path, "/" ) == 0 )
     {
+        statbuf->st_uid = getuid();
+        statbuf->st_gid = getgid();
+        statbuf->st_atime = time(NULL);
+        statbuf->st_mtime = time(NULL);
+
         statbuf->st_mode = S_IFDIR | 0755;
         statbuf->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
         RETURN(ret);
     }
 
     if(index >= 0) {
+        statbuf->st_uid = sdfr->root->fileInfos[index].userId;
+        statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
+        updateTime(index, 1);
+        statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
+        statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
+
         statbuf->st_mode = sdfr->root->fileInfos[index].mode;
         statbuf->st_nlink = 1;
         statbuf->st_size = sdfr->root->fileInfos[index].dataSize;
