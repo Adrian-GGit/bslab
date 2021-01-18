@@ -75,7 +75,8 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
             RETURN(-ENAMETOOLONG)
         }
         MyFsFileInfo* newData = &(sdfr->root->fileInfos[sdfr->superBlock->existingFiles]);
-        copyFileNameIntoArray(path + 1, newData->fileName);
+        //copyFileNameIntoArray(path + 1, newData->fileName);
+        strcpy(newData->fileName, path + 1);
         newData->mode = mode;  //root: read,write,execute; group: read,execute; others:read,execute -> to give everyone all perms: 0777
         newData->a_time = time(NULL);    //current time
         newData->m_time = time(NULL);
@@ -161,7 +162,8 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
 
     index = searchForFile(path);
     if(index >= 0) {
-        copyFileNameIntoArray(newpath + 1, sdfr->root->fileInfos[index].fileName);
+        //copyFileNameIntoArray(newpath + 1, sdfr->root->fileInfos[index].fileName);
+        strcpy(sdfr->root->fileInfos[index].fileName, newpath + 1);
         calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
         RETURN(0);
@@ -718,7 +720,7 @@ void MyOnDiskFS::updateTime(int index, int timeIndex) {
 }
 
 //TODO Methode aus String.h
-void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
+/*void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     index = 0;
 
     while(*fileName != '\0') {
@@ -728,7 +730,7 @@ void MyOnDiskFS::copyFileNameIntoArray(const char *fileName, char fileArray[]) {
     }
 
     fileArray[index] = '\0';
-}
+}*/
 
 int MyOnDiskFS::findNextFreeBlock(int lastBlock) { //TODO parameter benötigt? - falls nicht lastBlock mit 0 init und in prototyp parameter entfernen
     lastBlock++; //current as parameter is the current block which is definitely not free
