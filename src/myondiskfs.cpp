@@ -151,8 +151,8 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
     index = searchForFile(path);
     if(index >= 0) {
         strcpy(sdfr->root->fileInfos[index].fileName, newpath + 1);
-        calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
+        calcBlocksAndSynchronize(ROOT, index);
         RETURN(0);
     }
     RETURN(index);
@@ -204,6 +204,7 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
         statbuf->st_uid = sdfr->root->fileInfos[index].userId;
         statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
         updateTime(index, 1);
+        calcBlocksAndSynchronize(ROOT, index);
         statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
         statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
 
@@ -230,8 +231,8 @@ int MyOnDiskFS::fuseChmod(const char *path, mode_t mode) {
     index = searchForFile(path);
     if(index >= 0) {
         sdfr->root->fileInfos[index].mode = mode;
-        calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
+        calcBlocksAndSynchronize(ROOT, index);
         RETURN(0);
     }
 
@@ -252,10 +253,9 @@ int MyOnDiskFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
     index = searchForFile(path);
     if(index >= 0) {
         sdfr->root->fileInfos[index].userId = uid;
-        calcBlocksAndSynchronize(ROOT, index); //TODO eigentlich unnötig, da 2 Zeilen weiter dasselbe gemacht wird
         sdfr->root->fileInfos[index].groupId = gid;
-        calcBlocksAndSynchronize(ROOT, index);
         updateTime(index, 1);
+        calcBlocksAndSynchronize(ROOT, index);
         RETURN(0);
     }
 
@@ -283,6 +283,7 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
     sdfr->root->fileInfos[index].open = true;
     openFiles++;
     updateTime(index, 0);
+    calcBlocksAndSynchronize(ROOT, index);
     RETURN(0);
 }
 
@@ -313,6 +314,7 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
         finalSize = read(file->dataSize, buf, size, offset, fileInfo, -1);
         updateTime(index, 0);
+        calcBlocksAndSynchronize(ROOT, index);
         RETURN(finalSize);
     }
     return index;
@@ -413,6 +415,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         file->dataSize = offset + size > file->dataSize ? offset + size : file->dataSize;   //falls was überschrieben wird -> dataSize bleibt gleich, falls was dazukam offset + size
         finalSize -= missing;   //nötig??? eigentlich werden die 0en auch noch geschrieben
         updateTime(index, 0);
+        //calcBlocksAndSynchronize(ROOT, index);    //TODO wieder reinbringen - gibt noch bug
         return finalSize;
     }
     return index;
@@ -498,40 +501,7 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
 /// \return 0 on success, -ERRNO on failure.
 int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
-
-    index = searchForFile(path);
-    if (index >= 0) {
-        MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
-        int numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
-        if(newSize > file->dataSize) {
-            numBlocksNew = newSize % BLOCK_SIZE == 0 ? newSize / BLOCK_SIZE : newSize / BLOCK_SIZE + 1;
-            int missing = newSize - file->dataSize;
-            char puf[missing];
-            memset(puf, '0', missing);
-            return write(file, puf, missing, file->dataSize, nullptr, -1);
-        } else {
-            int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
-            int toDelete = numBlocksOld - numBlocksNew;
-            int current = file->startBlock;
-            for (int i = 0; i < numBlocksOld; i++) {
-                int next = sdfr->fat->FATTable[current];
-                if (i >= numBlocksOld - toDelete - 1) {
-                    sdfr->fat->FATTable[current] = EOF;
-                    calcBlocksAndSynchronize(FAT, current);
-                }
-                if (i >= numBlocksOld - toDelete) {
-                    sdfr->dmap->freeBlocks[current] = '0';
-                    calcBlocksAndSynchronize(DMAP, current);
-                }
-                current = next;
-            }
-        }
-
-        file->dataSize = newSize;
-        file->noBlocks = numBlocksNew;
-    }
-
-    RETURN(index);
+    return(fuseTruncate(path, newSize, nullptr));
 }
 
 /// @brief Truncate a file.
@@ -576,6 +546,8 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
 
         file->dataSize = newSize;
         file->noBlocks = numBlocksNew;
+        updateTime(index, 1);
+        calcBlocksAndSynchronize(ROOT, index);
     }
 
     RETURN(index);
@@ -849,6 +821,7 @@ void MyOnDiskFS::checkAndCloseFile(MyFsFileInfo* file) {
         sdfr->root->fileInfos[index].open = false;
         openFiles--;
         updateTime(index, 0);
+        //calcBlocksAndSynchronize(ROOT, index);    //TODO wieder reinbringen
     }
 }
 
