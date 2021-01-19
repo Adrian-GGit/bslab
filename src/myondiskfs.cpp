@@ -746,73 +746,37 @@ void MyOnDiskFS::synchronizeSuperBlock() {
 ///used to calculate which block has to be replaced with which buffer and synchronize
 void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArray) {
     //LOG("Synchronize...");
-    float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an Blöcke die der struct einnimmt
+    float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an realen Blöcke die der struct einnimmt
     float oneBlock = dfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks: NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
-    int sizeArray = dfrBlock == ROOT ? NUM_DIR_ENTRIES : NUM_BLOCKS;
-    //int startBlock = getBlocks(oneBlock, numBlocks, indexInArray);
-    //int realStartBlock = indexes[dfrBlock] + startBlock;
-    //LOGF("numBlocks: %f | oneBlocknumblocks: %f | startBlock: %d | dfrBlock: %d | indexes[dfrBlock]: %d | realStartBlock: %d", numBlocks, oneBlock, startBlock, dfrBlock, indexes[dfrBlock], realStartBlock);
-
-    //findBestStartingBlock(dfrBlock, numBlocks, oneBlock); //TODO create new method
 
     int startBlock = 0;
-    float current = 0;
+    int lastBlock = 0;
+    float current = oneBlock;
+    bool setStart = false;
 
     for (int i = 0; i < numBlocks; i++) {
-        if (i > //umrechnung von indexInArrayter Eintrag zu numBlocksEintrag) {
+        if (current < indexInArray && !setStart) {
+            startBlock = i;
+            setStart = true;
+        } else if (current > indexInArray){
+            lastBlock = i;
             break;
         }
-        startBlock = current;
         current += oneBlock;
-    }
-
-    int realStartBlock = indexes[dfrBlock] + startBlock;
-    int lastBlock = oneBlock - (int) oneBlock > 0 ? startBlock + (int) oneBlock + 1 : startBlock + oneBlock;
-
-    for (int i = startBlock; i <= lastBlock; i++) {
-
     }
 
     size_t size = sdfr->getSize(dfrBlock);
     char buf[size];
     memcpy(buf, sdfr->getStruct(dfrBlock), size);
     char puffer[BLOCK_SIZE];
-    memcpy(puffer, buf + startBlock * BLOCK_SIZE, BLOCK_SIZE);
-    blockDevice->write(realStartBlock, puffer);
 
-    //if (dfrBlock == DMAP || dfrBlock == FAT) {
-    //writeDFR(dfrBlock, startBlock, realStartBlock, oneBlock);
-    //} else{
-        //writeDFR(dfrBlock, startBlock, realStartBlock);
-        //if (startBlock < numBlocks)
-        //    writeDFR(dfrBlock, startBlock + 1, realStartBlock + 1);
-    //}
+    for (int i = startBlock; i <= lastBlock; i++) {
+        memcpy(puffer, buf + i * BLOCK_SIZE, BLOCK_SIZE);
+        blockDevice->write(indexes[dfrBlock] + i, puffer);
+    }
 
     //LOG("End of synchronize...");
 }
-
-
-
-//synchronize container with fat/dmap/root on ram
-/*void MyOnDiskFS::writeDFR(int dfrBlock, int startBlock, int realStartBlock, float oneBlock) {
-    size_t size = sdfr->getSize(dfrBlock);
-    char buf[size];
-    memcpy(buf, sdfr->getStruct(dfrBlock), size);
-    char puffer[BLOCK_SIZE];
-    memcpy(puffer, buf + startBlock * BLOCK_SIZE, BLOCK_SIZE);
-    blockDevice->write(realStartBlock, puffer);
-}*/
-
-//calc blocknumber in container equivalt to indexinarray
-/*int MyOnDiskFS::getBlocks(float oneBlock, float numBlocks, int indexInArray) {
-    float current = oneBlock;
-    for (int i = 0; i < numBlocks; i++) {
-        if (indexInArray <= current) {
-            return i;
-        }
-        current += oneBlock;
-    }
-}*/
 
 unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned int numBlocksForward) {
     for (int i = 0; i < numBlocksForward; i++) {
