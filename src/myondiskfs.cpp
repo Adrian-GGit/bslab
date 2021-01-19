@@ -717,17 +717,17 @@ void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
             if (fill) {
                 sdfr->dmap->freeBlocks[blocks[i]] = '1';
                 calcBlocksAndSynchronize(DMAP, blocks[i]);
-            } else{
+            } else {
                 sdfr->dmap->freeBlocks[blocks[i]] = '0';
                 calcBlocksAndSynchronize(DMAP, blocks[i]);
             }
-        } else{
+        } else {
             if (fill) {
                 sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
                 calcBlocksAndSynchronize(FAT, blocks[i]);
                 sdfr->dmap->freeBlocks[blocks[i]] = '1';
                 calcBlocksAndSynchronize(DMAP, blocks[i]);
-            } else{
+            } else {
                 sdfr->fat->FATTable[blocks[i]] = EOF;
                 calcBlocksAndSynchronize(FAT, blocks[i]);
                 sdfr->dmap->freeBlocks[blocks[i]] = '0';
