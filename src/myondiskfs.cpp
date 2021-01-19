@@ -713,13 +713,13 @@ void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     for (int i = 0; i < sizeArray; i++) {
         if (i == sizeArray - 1) {
                 sdfr->fat->FATTable[blocks[i]] = EOF;
-                calcBlocksAndSynchronize(FAT, blocks[sizeArray - 1]);
+                calcBlocksAndSynchronize(FAT, blocks[i]);
             if (fill) {
                 sdfr->dmap->freeBlocks[blocks[i]] = '1';
-                calcBlocksAndSynchronize(DMAP, blocks[sizeArray - 1]);
+                calcBlocksAndSynchronize(DMAP, blocks[i]);
             } else{
                 sdfr->dmap->freeBlocks[blocks[i]] = '0';
-                calcBlocksAndSynchronize(DMAP, blocks[sizeArray - 1]);
+                calcBlocksAndSynchronize(DMAP, blocks[i]);
             }
         } else{
             if (fill) {
@@ -748,17 +748,14 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
     //LOG("Synchronize...");
     float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an realen Blöcke die der struct einnimmt
     float oneBlock = dfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks: NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
-    //LOGF("dfrBlock: %d | indexInArray: %d", dfrBlock, indexInArray);
-    //LOGF("numRealBlocks: %f | oneBlock: %f", numBlocks, oneBlock);
     float floatStartBlock = (indexInArray / oneBlock);
     int startBlock = static_cast<int>(floatStartBlock);
-
     float floatLastBlock = ((indexInArray + 1) / oneBlock);
     int lastBlock = static_cast<int>(floatLastBlock);
     if (floatLastBlock - lastBlock == 0) {
         lastBlock--;
     }
-    //LOGF("startBlock: %d | lastBlock: %d", startBlock, lastBlock);
+
     size_t size = sdfr->getSize(dfrBlock);
     char buf[size];
     memcpy(buf, sdfr->getStruct(dfrBlock), size);
@@ -768,7 +765,6 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
         memcpy(puffer, buf + i * BLOCK_SIZE, BLOCK_SIZE);
         blockDevice->write(indexes[dfrBlock] + i, puffer);
     }
-
     //LOG("End of synchronize...");
 }
 
