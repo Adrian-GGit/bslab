@@ -748,23 +748,31 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
     //LOG("Synchronize...");
     float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an realen Blöcke die der struct einnimmt
     float oneBlock = dfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks: NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
+    LOGF("dfrBlock: %d | indexInArray: %d", dfrBlock, indexInArray);
+    LOGF("numRealBlocks: %f | oneBlock: %f", numBlocks, oneBlock);
 
     int startBlock = 0;
     int lastBlock = 0;
-    float current = oneBlock;
+    float current = 0;
     bool setStart = false;
 
     for (int i = 0; i < numBlocks; i++) {
-        if (current < indexInArray && !setStart) {
-            startBlock = i;
-            setStart = true;
-        } else if (current > indexInArray){
+        if  (!setStart) {
+            if (current <= indexInArray && (current + oneBlock) > indexInArray) {
+                startBlock = i;
+                setStart = true;
+            }
+            LOGF("current: %d | current + oneBlock: %d | (current + oneBlock): %d | indexInArray: %d", current, current + oneBlock, (current + oneBlock), indexInArray);
+        }
+        if (current <= indexInArray && (current + oneBlock) > indexInArray) {
             lastBlock = i;
             break;
         }
+
         current += oneBlock;
     }
 
+    LOGF("virtualstartBlock: %d | virtuallastBlock: %d", startBlock, lastBlock);
     size_t size = sdfr->getSize(dfrBlock);
     char buf[size];
     memcpy(buf, sdfr->getStruct(dfrBlock), size);
