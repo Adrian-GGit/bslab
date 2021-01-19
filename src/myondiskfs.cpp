@@ -748,31 +748,17 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
     //LOG("Synchronize...");
     float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an realen Blöcke die der struct einnimmt
     float oneBlock = dfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks: NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
-    LOGF("dfrBlock: %d | indexInArray: %d", dfrBlock, indexInArray);
-    LOGF("numRealBlocks: %f | oneBlock: %f", numBlocks, oneBlock);
+    //LOGF("dfrBlock: %d | indexInArray: %d", dfrBlock, indexInArray);
+    //LOGF("numRealBlocks: %f | oneBlock: %f", numBlocks, oneBlock);
+    float floatStartBlock = (indexInArray / oneBlock);
+    int startBlock = static_cast<int>(floatStartBlock);
 
-    int startBlock = 0;
-    int lastBlock = 0;
-    float current = 0;
-    bool setStart = false;
-
-    for (int i = 0; i < numBlocks; i++) {
-        if  (!setStart) {
-            if (current <= indexInArray && (current + oneBlock) > indexInArray) {
-                startBlock = i;
-                setStart = true;
-            }
-            LOGF("current: %d | current + oneBlock: %d | (current + oneBlock): %d | indexInArray: %d", current, current + oneBlock, (current + oneBlock), indexInArray);
-        }
-        if (current <= indexInArray && (current + oneBlock) > indexInArray) {
-            lastBlock = i;
-            break;
-        }
-
-        current += oneBlock;
+    float floatLastBlock = ((indexInArray + 1) / oneBlock);
+    int lastBlock = static_cast<int>(floatLastBlock);
+    if (floatLastBlock - lastBlock == 0) {
+        lastBlock--;
     }
-
-    LOGF("virtualstartBlock: %d | virtuallastBlock: %d", startBlock, lastBlock);
+    //LOGF("startBlock: %d | lastBlock: %d", startBlock, lastBlock);
     size_t size = sdfr->getSize(dfrBlock);
     char buf[size];
     memcpy(buf, sdfr->getStruct(dfrBlock), size);
