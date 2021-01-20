@@ -52,7 +52,7 @@ public:
     void setIndexes();
     int searchForFile(const char *path);
     void updateTime(int index, int timeIndex);
-    int findNextFreeBlock(int lastBlock = -1);
+    int findNextFreeBlock();
     void fillFatAndDmap(int blocks[], size_t sizeArray, bool fill);
     void fillFatAndDmapWhileBuild();
     void synchronizeSuperBlock();

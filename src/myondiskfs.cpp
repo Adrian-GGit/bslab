@@ -525,6 +525,8 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
             int missing = newSize - file->dataSize;
             char puf[missing];
             memset(puf, '0', missing);
+            if (!enoughStorage(index, missing))
+                return -ENOMEM;
             return write(file, puf, missing, file->dataSize, fileInfo, -1);
         } else {
             int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
@@ -682,17 +684,16 @@ void MyOnDiskFS::updateTime(int index, int timeIndex) {
     }
 }
 
-int MyOnDiskFS::findNextFreeBlock(int lastBlock) { //TODO parameter benötigt? - falls nicht lastBlock mit 0 init und in prototyp parameter entfernen
-    lastBlock++; //current as parameter is the current block which is definitely not free
-
+int MyOnDiskFS::findNextFreeBlock() {
+    int currentBlock = 0;
     while(true) {
-        if (lastBlock >= NUM_BLOCKS) {      //TODO nötig das nachzuschauen? es wird ja immer schon am anfang geprüft ob genug Blöcke verfügbar sind
+        if (currentBlock >= NUM_BLOCKS) {      //TODO nötig das nachzuschauen? es wird ja immer schon am anfang geprüft ob genug Blöcke verfügbar sind
             RETURN(-ENOMEM);
         } else {
-            if (sdfr->dmap->freeBlocks[lastBlock] == '0') {
-                return lastBlock;
+            if (sdfr->dmap->freeBlocks[currentBlock] == '0') {
+                return currentBlock;
             } else {
-                lastBlock++;
+                currentBlock++;
             }
         }
     }
@@ -781,7 +782,7 @@ bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
     MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
     size_t missingStorageInLastBlock = BLOCK_SIZE - (file->dataSize % BLOCK_SIZE); //berechnet wie viel Platz noch im letzten von der file allokierten Block verfügbar ist
     size_t storageToAlloc = neededStorage;
-    if ((missingStorageInLastBlock == BLOCK_SIZE && file->noBlocks == 1) || missingStorageInLastBlock != BLOCK_SIZE)
+    if ((missingStorageInLastBlock == BLOCK_SIZE && file->noBlocks == 1) || missingStorageInLastBlock != BLOCK_SIZE) //TODO prüfen wozu die if
         storageToAlloc = neededStorage - missingStorageInLastBlock;
     int numNewBlocks = storageToAlloc % BLOCK_SIZE == 0 ? storageToAlloc / BLOCK_SIZE : storageToAlloc / BLOCK_SIZE + 1;
     int currentBlock = 0;
@@ -803,7 +804,7 @@ void MyOnDiskFS::checkAndCloseFile(MyFsFileInfo* file) {
         sdfr->root->fileInfos[index].open = false;
         openFiles--;
         updateTime(index, 0);
-        calcBlocksAndSynchronize(ROOT, index);    //TODO wieder reinbringen
+        calcBlocksAndSynchronize(ROOT, index);
     }
 }
 
@@ -815,7 +816,7 @@ void MyOnDiskFS::buildStructure(int start) {
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
         MyFsFileInfo *file = new MyFsFileInfo;
-        file->noBlocks = -1;
+        file->noBlocks = -1;    //-1 dass in write keine neuen Blöcke mehr allokiert werden
         write(file, buf, s, 0, nullptr, i);
         delete file;
     }
