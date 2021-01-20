@@ -748,11 +748,13 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
     //LOG("Synchronize...");
     float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an realen Blöcke die der struct einnimmt
     float oneBlock = dfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks: NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
+
     float floatStartBlock = (indexInArray / oneBlock);
-    int startBlock = static_cast<int>(floatStartBlock);
+    int startBlock = (int)(floatStartBlock);
     float floatLastBlock = ((indexInArray + 1) / oneBlock);
-    int lastBlock = static_cast<int>(floatLastBlock);
-    if (floatLastBlock - lastBlock == 0) {
+    int lastBlock = (int)(floatLastBlock);
+
+    if (floatLastBlock - lastBlock == (float)0) { //falls floatLastBlock keine Nachkommastelle besitzt wird das Ende des gefragten Index noch vom vorherigen Block verwaltet -> --
         lastBlock--;
     }
 
