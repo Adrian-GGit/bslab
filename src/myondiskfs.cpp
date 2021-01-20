@@ -622,7 +622,6 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
                 this->blockDevice->create("/home/user/bslab/container.bin");
 
                 setIndexes();
-                fillFatAndDmapWhileBuild();
                 buildStructure(0);
             }
         }
@@ -655,6 +654,7 @@ void MyOnDiskFS::setIndexes() {
         indexes[i] = currentIndex + numBlocks;
         size_t s = sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+        LOGF("index %d: %d", i, indexes[i]);
     }
 }
 
@@ -696,16 +696,6 @@ int MyOnDiskFS::findNextFreeBlock() {
                 currentBlock++;
             }
         }
-    }
-}
-
-void MyOnDiskFS::fillFatAndDmapWhileBuild() {
-    for (int i = 0; i < NUM_SDFR - 1; i++) {
-        int blocks[indexes[i + 1] - indexes[i]];
-        for (int j = indexes[i]; j < indexes[i + 1]; j++) {
-            blocks[j - indexes[i]] = j;
-        }
-        fillFatAndDmap(blocks, sizeof(blocks) / sizeof(blocks[0]), true);
     }
 }
 
@@ -810,13 +800,15 @@ void MyOnDiskFS::checkAndCloseFile(MyFsFileInfo* file) {
 
 //TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs
 
-void MyOnDiskFS::buildStructure(int start) {
+void MyOnDiskFS::buildStructure(int start) {    //TODO parameter notwendig???
     for (int i = start; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
         MyFsFileInfo *file = new MyFsFileInfo;
-        file->noBlocks = -1;    //-1 dass in write keine neuen Blöcke mehr allokiert werden
+        sdfr->dmap->freeBlocks[indexes[i]] = '1';   //allokiere ersten Block -> Rest allokiert write
+        calcBlocksAndSynchronize(DMAP, indexes[i]);
+        file->noBlocks = 1;
         write(file, buf, s, 0, nullptr, i);
         delete file;
     }
