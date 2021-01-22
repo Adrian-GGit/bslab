@@ -689,29 +689,32 @@ int MyOnDiskFS::findNextFreeBlock() {
 void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
     for (int i = 0; i < sizeArray; i++) {
         if (i == sizeArray - 1) {
-                sdfr->fat->FATTable[blocks[i]] = EOF;
-                calcBlocksAndSynchronize(FAT, blocks[i]);
+            fillFat(blocks[i], EOF);
             if (fill) {
-                sdfr->dmap->freeBlocks[blocks[i]] = '1';
-                calcBlocksAndSynchronize(DMAP, blocks[i]);
+                fillDmap(blocks[i], '1');
             } else {
-                sdfr->dmap->freeBlocks[blocks[i]] = '0';
-                calcBlocksAndSynchronize(DMAP, blocks[i]);
+                fillDmap(blocks[i], '0');
             }
         } else {
             if (fill) {
-                sdfr->fat->FATTable[blocks[i]] = blocks[i + 1];
-                calcBlocksAndSynchronize(FAT, blocks[i]);
-                sdfr->dmap->freeBlocks[blocks[i]] = '1';
-                calcBlocksAndSynchronize(DMAP, blocks[i]);
+                fillFat(blocks[i], blocks[i + 1]);
+                fillDmap(blocks[i], '1');
             } else {
-                sdfr->fat->FATTable[blocks[i]] = EOF;
-                calcBlocksAndSynchronize(FAT, blocks[i]);
-                sdfr->dmap->freeBlocks[blocks[i]] = '0';
-                calcBlocksAndSynchronize(DMAP, blocks[i]);
+                fillFat(blocks[i], EOF);
+                fillDmap(blocks[i], '0');
             }
         }
     }
+}
+
+void MyOnDiskFS::fillFat(int index, int toInsert) {
+    sdfr->fat->FATTable[index] = toInsert;
+    calcBlocksAndSynchronize(FAT, index);
+}
+
+void MyOnDiskFS::fillDmap(int index, unsigned char toInsert) {
+    sdfr->dmap->freeBlocks[index] = toInsert;
+    calcBlocksAndSynchronize(DMAP, index);
 }
 
 void MyOnDiskFS::synchronizeSuperBlock() {

@@ -60,6 +60,10 @@ public:
     unsigned int read(size_t dataSize, char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
     bool enoughStorage(int index, size_t neededStorage);
     void checkAndCloseFile(MyFsFileInfo* file);
+
+    void fillFat(int index, int toInsert);
+
+    void fillDmap(int index, unsigned char toInsert);
 };
 
 #endif //MYFS_MYONDISKFS_H
