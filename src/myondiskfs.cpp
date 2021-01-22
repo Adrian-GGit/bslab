@@ -321,7 +321,7 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
     unsigned int totalSize = 0;
     unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
     unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
-    unsigned int startingBlock = build < 0 ? sdfr->root->fileInfos[index].startBlock : indexes[build];
+    unsigned int startingBlock = build < 0 ? sdfr->root->fileInfos[index].startBlock : sdfr->getIndex(build);
     startingBlock = getStartingBlock(startingBlock, numBlocksForward);
 
     unsigned int bytesInFileAfterOffset = dataSize - (numBlocksForward * BLOCK_SIZE);    //Anzahl Bytes die hinter offset in der Datei stehen
@@ -402,7 +402,7 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         file->dataSize = offset + size > file->dataSize ? offset + size : file->dataSize;   //falls was überschrieben wird -> dataSize bleibt gleich, falls was dazukam offset + size
         finalSize -= missing;   //nötig??? eigentlich werden die 0en auch noch geschrieben
         updateTime(index, 0);
-        calcBlocksAndSynchronize(ROOT, index);    //TODO wieder reinbringen - gibt noch bug
+        calcBlocksAndSynchronize(ROOT, index);
         return finalSize;
     }
     return index;
@@ -417,7 +417,7 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
     if (build < 0) {
         startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
     } else{
-        startingBlock = indexes[build];
+        startingBlock = sdfr->getIndex(build);
     }
 
     //hole neuen Block falls aktueller Block voll ist
@@ -638,10 +638,9 @@ void MyOnDiskFS::setIndexes() {
     for (int i = 0; i < NUM_SDFR; i++) {
         currentIndex = sdfr->getIndex(i);
         sdfr->setIndex(i, currentIndex + numBlocks);
-        indexes[i] = currentIndex + numBlocks;
         size_t s = sdfr->getSize(i);
         numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
-        LOGF("index %d: %d", i, indexes[i]);
+        LOGF("index %d: %d", i, sdfr->getIndex(i));
     }
 }
 
@@ -724,7 +723,7 @@ void MyOnDiskFS::synchronizeSuperBlock() {
 ///used to calculate which block has to be replaced with which buffer and synchronize
 void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArray) {
     //LOG("Synchronize...");
-    float numBlocks = indexes[dfrBlock + 1] - indexes[dfrBlock];    //Anzahl an realen Blöcke die der struct einnimmt
+    float numBlocks = sdfr->getIndex(dfrBlock + 1) - sdfr->getIndex(dfrBlock);    //Anzahl an realen Blöcke die der struct einnimmt
     float oneBlock = dfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks: NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
 
     float floatStartBlock = (indexInArray / oneBlock);
@@ -743,7 +742,7 @@ void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArra
 
     for (int i = startBlock; i <= lastBlock; i++) {
         memcpy(puffer, buf + i * BLOCK_SIZE, BLOCK_SIZE);
-        blockDevice->write(indexes[dfrBlock] + i, puffer);
+        blockDevice->write(sdfr->getIndex(dfrBlock) + i, puffer);
     }
     //LOG("End of synchronize...");
 }
@@ -791,8 +790,8 @@ void MyOnDiskFS::buildStructure() {
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
         MyFsFileInfo *file = new MyFsFileInfo;
-        sdfr->dmap->freeBlocks[indexes[i]] = '1';   //allokiere ersten Block -> Rest allokiert write
-        calcBlocksAndSynchronize(DMAP, indexes[i]);
+        sdfr->dmap->freeBlocks[sdfr->getIndex(i)] = '1';   //allokiere ersten Block -> Rest allokiert write
+        calcBlocksAndSynchronize(DMAP, sdfr->getIndex(i));
         file->noBlocks = 1;
         write(file, buf, s, 0, nullptr, i);
         delete file;
