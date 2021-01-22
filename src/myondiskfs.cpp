@@ -112,7 +112,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
         checkAndCloseFile(file);
         size_t s = file->dataSize;
-        if (s != 0) //ist s == 0 ist numBlocks immer 1
+        if (s != 0) //ist s == 0 ist numBlocks immer 1  //TODO prüfe ob wirklich nötig
             numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
         int blocks[numBlocks];
         int currentBlock = file->startBlock;
@@ -309,7 +309,7 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
     //TODO fragen wie das mit read mitten aus einer file funktionieren soll: size ist immer 4096
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
     index = searchForFile(path);
-    size_t finalSize = 0;
+    size_t finalSize;
     if(index >= 0) {
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
         finalSize = read(file->dataSize, buf, size, offset, fileInfo, -1);
@@ -317,24 +317,19 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         calcBlocksAndSynchronize(ROOT, index);
         RETURN(finalSize);
     }
-    return index;
+    RETURN(index);
 }
 
 unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo, int build) {
     unsigned int totalSize = 0;
     unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
     unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
-    unsigned int startingBlock;
-    if (build < 0) {
-        startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
-        startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
-    } else{
-        startingBlock = indexes[build];
-    }
+    unsigned int startingBlock = build < 0 ? sdfr->root->fileInfos[index].startBlock : indexes[build];
+    startingBlock = getStartingBlock(startingBlock, numBlocksForward);
 
-    unsigned int leftBytes = dataSize - (numBlocksForward * BLOCK_SIZE);    //Anzahl Bytes die hinter offset in der Datei stehen
+    unsigned int bytesInFileAfterOffset = dataSize - (numBlocksForward * BLOCK_SIZE);    //Anzahl Bytes die hinter offset in der Datei stehen
+    unsigned int bytesToReadAfterOffset = bytesInFileAfterOffset > size ? size: bytesInFileAfterOffset;    //entweder begrenzt bytesAfterOffset oder size die Anzahl zu lesender Bytes
 
-    //TODO wird offset > datasize schon durch test read abgefangen oder muss man selber implementieren? - bzw ist dies hier unnötig?
     if (offset > dataSize) {
         RETURN(0);
     }
@@ -344,19 +339,15 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
     unsigned int count = 0;
 
     while (true) {
-        if (build < 0) {
-            if (startingBlock == fileInfo->fh) {
-                memcpy(blockBuffer, puffer, BLOCK_SIZE);
-            } else {
-                blockDevice->read(startingBlock, blockBuffer);
-            }
+        if (build < 0 && startingBlock == fileInfo->fh) {   //im falle von build<0 gibt es möglicherweise einen puffer in welchem bereits gelesene/geschriebene Daten drin gespeichert wurden
+            memcpy(blockBuffer, puffer, BLOCK_SIZE);
         } else{
             blockDevice->read(startingBlock, blockBuffer);
         }
-        if (leftBytes <= BLOCK_SIZE || size <= BLOCK_SIZE) {
-            unsigned int rest = leftBytes > size ? size : leftBytes;
-            memcpy((tempBuf + count), blockBuffer, rest);
-            totalSize += rest;
+        if (bytesToReadAfterOffset <= BLOCK_SIZE) {
+            memcpy((tempBuf + count), blockBuffer, bytesToReadAfterOffset);
+            totalSize += bytesToReadAfterOffset;
+            totalSize -= startInFirstBlock;
             memcpy(buf, tempBuf + startInFirstBlock, totalSize);
             RETURN(totalSize);
         } else{
@@ -368,8 +359,7 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
         } else{
             startingBlock++;
         }
-        size -= BLOCK_SIZE;
-        leftBytes -= BLOCK_SIZE;
+        bytesToReadAfterOffset -= BLOCK_SIZE;
         count += BLOCK_SIZE;
     }
 }
