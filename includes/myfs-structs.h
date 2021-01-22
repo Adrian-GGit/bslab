@@ -14,8 +14,8 @@
 #define NUM_DIR_ENTRIES 64
 #define NUM_OPEN_FILES 64
 
-#define NUM_BLOCKS 131072       //2^17 - //TODO ca. 20 * 2¹⁷
-#define EOF 131073              //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
+#define NUM_BLOCKS 4194304       //32*2^17
+#define EOF 4194305              //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
 
 #define SUPERBLOCK 0
 #define DMAP 1
@@ -30,12 +30,9 @@
 #define BLOCKSIZE_ROOT 19968*/
 
 
-// TODO: Add structures of your file system here
-
 struct MyFsFileInfo {
     char fileName[NAME_LENGTH];
     size_t dataSize = 0;
-//    size_t oldDataSize = 0;   //TODO unnötig?!
     unsigned int startBlock;        //beschreibt bei ondisk in welchem Block Datei startet
     unsigned int noBlocks = 0;      //beschreibt bei ondisk wie viele Blöcke der size BLOCK_SIZE benutzt werden
     unsigned int userId;
