@@ -14,8 +14,8 @@
 #define NUM_DIR_ENTRIES 64
 #define NUM_OPEN_FILES 64
 
-#define NUM_BLOCKS 4194304       //32*2^17
-#define EOF 4194305              //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
+#define NUM_BLOCKS 131072       //32*2^17
+#define EOF 131073              //EOF ist die Zahl welche in FAT das Ende einer File symbolisiert -> 1 größer als max
 
 #define SUPERBLOCK 0
 #define DMAP 1

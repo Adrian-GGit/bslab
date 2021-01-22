@@ -106,14 +106,11 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
     LOGM();
 
     index = searchForFile(path);
-    int numBlocks = 1;
 
     if (index >= 0) {
         MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
         checkAndCloseFile(file);
-        size_t s = file->dataSize;
-        if (s != 0) //ist s == 0 ist numBlocks immer 1  //TODO prüfe ob wirklich nötig
-            numBlocks = s % BLOCK_SIZE == 0 ? s / BLOCK_SIZE : (s / BLOCK_SIZE) + 1;
+        unsigned int numBlocks = sdfr->root->fileInfos[index].noBlocks;
         int blocks[numBlocks];
         int currentBlock = file->startBlock;
         for (int i = 0; i < numBlocks; i++) { //füllt array blocks mit allen Indizes von fat bzw dmap auf
@@ -612,7 +609,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
                 this->blockDevice->create("/home/user/bslab/container.bin");
 
                 setIndexes();
-                buildStructure(0);
+                buildStructure();
             }
         }
 
@@ -761,9 +758,7 @@ unsigned int MyOnDiskFS::getStartingBlock(unsigned int startingBlock, unsigned i
 bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
     MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
     size_t missingStorageInLastBlock = BLOCK_SIZE - (file->dataSize % BLOCK_SIZE); //berechnet wie viel Platz noch im letzten von der file allokierten Block verfügbar ist
-    size_t storageToAlloc = neededStorage;
-    if ((missingStorageInLastBlock == BLOCK_SIZE && file->noBlocks == 1) || missingStorageInLastBlock != BLOCK_SIZE) //TODO prüfen wozu die if
-        storageToAlloc = neededStorage - missingStorageInLastBlock;
+    size_t storageToAlloc = neededStorage - missingStorageInLastBlock;
     int numNewBlocks = storageToAlloc % BLOCK_SIZE == 0 ? storageToAlloc / BLOCK_SIZE : storageToAlloc / BLOCK_SIZE + 1;
     int currentBlock = 0;
     int counter = 0;
@@ -790,8 +785,8 @@ void MyOnDiskFS::checkAndCloseFile(MyFsFileInfo* file) {
 
 //TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs
 
-void MyOnDiskFS::buildStructure(int start) {    //TODO parameter notwendig???
-    for (int i = start; i < NUM_SDFR - 1; i++) {
+void MyOnDiskFS::buildStructure() {
+    for (int i = 0; i < NUM_SDFR - 1; i++) {
         size_t s = sdfr->getSize(i);
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);

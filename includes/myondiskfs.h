@@ -47,7 +47,7 @@ public:
     virtual void fuseDestroy();
 
     // TODO: Add methods of your file system here
-    void buildStructure(int start);
+    void buildStructure();
     void readContainer();
     void setIndexes();
     int searchForFile(const char *path);
