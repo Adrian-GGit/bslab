@@ -341,7 +341,7 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
             blockDevice->read(startingBlock, blockBuffer);
         }
         if (bytesToReadAfterOffset > BLOCK_SIZE) {
-            if (count == 0) {
+            if (count == 0) {   //anfangs muss ein Teil des 512er Blocks abgeschnitten werden abhängig von startInFirstBlock
                 memcpy(buf, blockBuffer + startInFirstBlock, BLOCK_SIZE - startInFirstBlock);
                 totalSize += BLOCK_SIZE - startInFirstBlock;
             } else{
