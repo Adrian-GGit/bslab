@@ -318,6 +318,10 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
 }
 
 unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo, int build) {
+    if (offset > dataSize) {
+        RETURN(0);
+    }
+
     unsigned int totalSize = 0;
     unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
     unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
@@ -327,11 +331,6 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
     unsigned int bytesInFileAfterOffset = dataSize - (numBlocksForward * BLOCK_SIZE);    //Anzahl Bytes die hinter offset in der Datei stehen
     unsigned int bytesToReadAfterOffset = bytesInFileAfterOffset > size ? size: bytesInFileAfterOffset;    //entweder begrenzt bytesAfterOffset oder size die Anzahl zu lesender Bytes
 
-    if (offset > dataSize) {
-        RETURN(0);
-    }
-
-    char tempBuf[size];
     char blockBuffer[BLOCK_SIZE];
     unsigned int count = 0;
 
@@ -341,16 +340,19 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
         } else{
             blockDevice->read(startingBlock, blockBuffer);
         }
-        if (bytesToReadAfterOffset <= BLOCK_SIZE) {
-            memcpy((tempBuf + count), blockBuffer, bytesToReadAfterOffset);
-            totalSize += bytesToReadAfterOffset;
-            totalSize -= startInFirstBlock;
-            memcpy(buf, tempBuf + startInFirstBlock, totalSize);
-            RETURN(totalSize);
+        if (bytesToReadAfterOffset > BLOCK_SIZE) {
+            if (count == 0) {
+                memcpy(buf, blockBuffer + startInFirstBlock, BLOCK_SIZE - startInFirstBlock);
+                totalSize += BLOCK_SIZE - startInFirstBlock;
+            } else{
+                memcpy(buf + count, blockBuffer, BLOCK_SIZE);
+                totalSize += BLOCK_SIZE;
+            }
         } else{
-            memcpy(tempBuf + count, blockBuffer, BLOCK_SIZE);
+            memcpy(buf + count, blockBuffer, bytesToReadAfterOffset);
+            totalSize += bytesToReadAfterOffset;
+            RETURN(totalSize);
         }
-        totalSize += BLOCK_SIZE;
         if (build < 0) {
             startingBlock = sdfr->fat->FATTable[startingBlock];
         } else{
