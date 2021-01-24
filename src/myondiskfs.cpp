@@ -89,7 +89,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->noBlocks = 1;
         calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);
         sdfr->superBlock->existingFiles += 1;
-        synchronizeSuperBlock();
+        calcBlocksAndSynchronize(SUPERBLOCK, 0);
         RETURN(0);
     }
 
@@ -126,7 +126,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
             calcBlocksAndSynchronize(ROOT, i);
         }
         sdfr->superBlock->existingFiles--;
-        synchronizeSuperBlock();
+        calcBlocksAndSynchronize(SUPERBLOCK, 0);
         RETURN(0);
     }
 
@@ -712,35 +712,35 @@ void MyOnDiskFS::fillDmap(int index, bool toInsert) {
     calcBlocksAndSynchronize(DMAP, index);
 }
 
-void MyOnDiskFS::synchronizeSuperBlock() {
-    char buf[BLOCK_SIZE];
-    memcpy(buf, sdfr->getStruct(SUPERBLOCK), BLOCK_SIZE);
-    blockDevice->write(sdfr->superBlock->mySuperblockindex, buf);
-}
-
 ///used to calculate which block has to be replaced with which buffer and synchronize
-void MyOnDiskFS::calcBlocksAndSynchronize(int dfrBlock, unsigned int indexInArray) {
+void MyOnDiskFS::calcBlocksAndSynchronize(int sdfrBlock, unsigned int indexInArray) {
     //LOG("Synchronize...");
-    float numBlocks = sdfr->getIndex(dfrBlock + 1) - sdfr->getIndex(dfrBlock);    //Anzahl an realen Blöcke die der struct einnimmt
-    float oneBlock = dfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks: NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
+    if (sdfrBlock == 0) {
+        char buf[BLOCK_SIZE];
+        memcpy(buf, sdfr->getStruct(SUPERBLOCK), BLOCK_SIZE);
+        blockDevice->write(sdfr->superBlock->mySuperblockindex, buf);
+    } else{
+        float numBlocks = sdfr->getIndex(sdfrBlock + 1) - sdfr->getIndex(sdfrBlock);    //Anzahl an realen Blöcke die der struct einnimmt
+        float oneBlock = sdfrBlock == ROOT ? NUM_DIR_ENTRIES / numBlocks : NUM_BLOCKS / numBlocks;    //die Anzahl an Array Einträgen die in einen 512er Block passen
 
-    float floatStartBlock = (indexInArray / oneBlock);
-    int startBlock = (int)(floatStartBlock);
-    float floatLastBlock = ((indexInArray + 1) / oneBlock);
-    int lastBlock = (int)(floatLastBlock);
+        float floatStartBlock = (indexInArray / oneBlock);
+        int startBlock = (int)(floatStartBlock);
+        float floatLastBlock = ((indexInArray + 1) / oneBlock);
+        int lastBlock = (int)(floatLastBlock);
 
-    if (floatLastBlock - lastBlock == (float)0) { //falls floatLastBlock keine Nachkommastelle besitzt wird das Ende des gefragten Index noch vom vorherigen Block verwaltet -> --
-        lastBlock--;
-    }
+        if (floatLastBlock - lastBlock == (float)0) { //falls floatLastBlock keine Nachkommastelle besitzt wird das Ende des gefragten Index noch vom vorherigen Block verwaltet -> --
+            lastBlock--;
+        }
 
-    size_t size = sdfr->getSize(dfrBlock);
-    char buf[size];
-    memcpy(buf, sdfr->getStruct(dfrBlock), size);
-    char puffer[BLOCK_SIZE];
+        size_t size = sdfr->getSize(sdfrBlock);
+        char buf[size];
+        memcpy(buf, sdfr->getStruct(sdfrBlock), size);
+        char puffer[BLOCK_SIZE];
 
-    for (int i = startBlock; i <= lastBlock; i++) {
-        memcpy(puffer, buf + i * BLOCK_SIZE, BLOCK_SIZE);
-        blockDevice->write(sdfr->getIndex(dfrBlock) + i, puffer);
+        for (int i = startBlock; i <= lastBlock; i++) {
+            memcpy(puffer, buf + i * BLOCK_SIZE, BLOCK_SIZE);
+            blockDevice->write(sdfr->getIndex(sdfrBlock) + i, puffer);
+        }
     }
     //LOG("End of synchronize...");
 }

@@ -55,7 +55,6 @@ public:
     void fillFatAndDmap(int blocks[], size_t sizeArray, bool fill);
     void fillFat(int index, int toInsert);
     void fillDmap(int index, bool toInsert);
-    void synchronizeSuperBlock();
     void calcBlocksAndSynchronize(int sdfrBlock, unsigned int indexOfInRamArray);
     unsigned int getStartingBlock(unsigned int startingBlock, unsigned int numBlocksForward);
     unsigned int write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, fuse_file_info *fileInfo, int build);
