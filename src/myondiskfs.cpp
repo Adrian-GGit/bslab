@@ -32,7 +32,7 @@ MyOnDiskFS::MyOnDiskFS() : MyFS() {
 
     //alle Blöcke sind noch frei
     for (int i = 0; i < NUM_BLOCKS; i++) {
-        sdfr->dmap->freeBlocks[i] = '0';
+        sdfr->dmap->freeBlocks[i] = 0;
         sdfr->fat->FATTable[i] = EOF;
     }
 
@@ -84,7 +84,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->groupId = getgid();
         newData->startBlock = nextFreeBlock;
 
-        sdfr->dmap->freeBlocks[nextFreeBlock] = '1';
+        sdfr->dmap->freeBlocks[nextFreeBlock] = 1;
         calcBlocksAndSynchronize(DMAP, nextFreeBlock);
         newData->noBlocks = 1;
         calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);
@@ -521,7 +521,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
                     calcBlocksAndSynchronize(FAT, current);
                 }
                 if (i >= numBlocksOld - toDelete) {
-                    sdfr->dmap->freeBlocks[current] = '0';
+                    sdfr->dmap->freeBlocks[current] = 0;
                     calcBlocksAndSynchronize(DMAP, current);
                 }
                 current = next;
@@ -671,7 +671,7 @@ int MyOnDiskFS::findNextFreeBlock() {
         if (currentBlock >= NUM_BLOCKS) {      //TODO nötig das nachzuschauen? es wird ja immer schon am anfang geprüft ob genug Blöcke verfügbar sind
             RETURN(-ENOMEM);
         } else {
-            if (sdfr->dmap->freeBlocks[currentBlock] == '0') {
+            if (sdfr->dmap->freeBlocks[currentBlock] == 0) {
                 return currentBlock;
             } else {
                 currentBlock++;
@@ -686,17 +686,17 @@ void MyOnDiskFS::fillFatAndDmap(int blocks[], size_t sizeArray, bool fill) {
         if (i == sizeArray - 1) {
             fillFat(blocks[i], EOF);
             if (fill) {
-                fillDmap(blocks[i], '1');
+                fillDmap(blocks[i], 1);
             } else {
-                fillDmap(blocks[i], '0');
+                fillDmap(blocks[i], 0);
             }
         } else {
             if (fill) {
                 fillFat(blocks[i], blocks[i + 1]);
-                fillDmap(blocks[i], '1');
+                fillDmap(blocks[i], 1);
             } else {
                 fillFat(blocks[i], EOF);
-                fillDmap(blocks[i], '0');
+                fillDmap(blocks[i], 0);
             }
         }
     }
@@ -707,7 +707,7 @@ void MyOnDiskFS::fillFat(int index, int toInsert) {
     calcBlocksAndSynchronize(FAT, index);
 }
 
-void MyOnDiskFS::fillDmap(int index, unsigned char toInsert) {
+void MyOnDiskFS::fillDmap(int index, bool toInsert) {
     sdfr->dmap->freeBlocks[index] = toInsert;
     calcBlocksAndSynchronize(DMAP, index);
 }
@@ -760,7 +760,7 @@ bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
     int currentBlock = 0;
     int counter = 0;
     while(true) {
-        if (sdfr->dmap->freeBlocks[currentBlock] == '0') {
+        if (sdfr->dmap->freeBlocks[currentBlock] == 0) {
             counter++;
         }
         currentBlock++;
@@ -787,7 +787,7 @@ void MyOnDiskFS::buildStructure() {
         char buf[s];
         memcpy(buf, sdfr->getStruct(i), s);
         MyFsFileInfo *file = new MyFsFileInfo;
-        sdfr->dmap->freeBlocks[sdfr->getIndex(i)] = '1';   //allokiere ersten Block -> Rest allokiert write
+        sdfr->dmap->freeBlocks[sdfr->getIndex(i)] = 1;   //allokiere ersten Block -> Rest allokiert write
         calcBlocksAndSynchronize(DMAP, sdfr->getIndex(i));
         file->noBlocks = 1;
         write(file, buf, s, 0, nullptr, i);

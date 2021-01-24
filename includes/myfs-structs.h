@@ -63,7 +63,7 @@ struct SDFR {
     mySuperblock* superBlock = new mySuperblock;      //in fuseDestory werden alle allokierten Variablen mit delete wieder gelöscht
 
     struct myDMAP {
-        unsigned char freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
+        bool freeBlocks[NUM_BLOCKS];   //0 is free, 1 is full
     };
     myDMAP* dmap = new myDMAP;
 
