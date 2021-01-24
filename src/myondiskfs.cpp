@@ -149,7 +149,6 @@ int MyOnDiskFS::fuseRename(const char *path, const char *newpath) {
     if(index >= 0) {
         strcpy(sdfr->root->fileInfos[index].fileName, newpath + 1);
         updateTime(index, 1);
-        calcBlocksAndSynchronize(ROOT, index);
         RETURN(0);
     }
     RETURN(index);
@@ -201,7 +200,6 @@ int MyOnDiskFS::fuseGetattr(const char *path, struct stat *statbuf) {
         statbuf->st_uid = sdfr->root->fileInfos[index].userId;
         statbuf->st_gid = sdfr->root->fileInfos[index].groupId;
         updateTime(index, 1);
-        calcBlocksAndSynchronize(ROOT, index);
         statbuf->st_atime = sdfr->root->fileInfos[index].a_time;
         statbuf->st_mtime = sdfr->root->fileInfos[index].m_time;
 
@@ -229,7 +227,6 @@ int MyOnDiskFS::fuseChmod(const char *path, mode_t mode) {
     if(index >= 0) {
         sdfr->root->fileInfos[index].mode = mode;
         updateTime(index, 1);
-        calcBlocksAndSynchronize(ROOT, index);
         RETURN(0);
     }
 
@@ -252,7 +249,6 @@ int MyOnDiskFS::fuseChown(const char *path, uid_t uid, gid_t gid) {
         sdfr->root->fileInfos[index].userId = uid;
         sdfr->root->fileInfos[index].groupId = gid;
         updateTime(index, 1);
-        calcBlocksAndSynchronize(ROOT, index);
         RETURN(0);
     }
 
@@ -280,7 +276,6 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
     sdfr->root->fileInfos[index].open = true;
     openFiles++;
     updateTime(index, 0);
-    calcBlocksAndSynchronize(ROOT, index);
     RETURN(0);
 }
 
@@ -311,7 +306,6 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
         finalSize = read(file->dataSize, buf, size, offset, fileInfo, -1);
         updateTime(index, 0);
-        calcBlocksAndSynchronize(ROOT, index);
         RETURN(finalSize);
     }
     RETURN(index);
@@ -404,7 +398,6 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
         file->dataSize = offset + size > file->dataSize ? offset + size : file->dataSize;   //falls was überschrieben wird -> dataSize bleibt gleich, falls was dazukam offset + size
         finalSize -= missing;   //nötig??? eigentlich werden die 0en auch noch geschrieben
         updateTime(index, 0);
-        calcBlocksAndSynchronize(ROOT, index);
         return finalSize;
     }
     return index;
@@ -538,7 +531,6 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
         file->dataSize = newSize;
         file->noBlocks = numBlocksNew;
         updateTime(index, 1);
-        calcBlocksAndSynchronize(ROOT, index);
     }
 
     RETURN(index);
@@ -670,6 +662,7 @@ void MyOnDiskFS::updateTime(int index, int timeIndex) {
             }
         }
     }
+    calcBlocksAndSynchronize(ROOT, index);
 }
 
 int MyOnDiskFS::findNextFreeBlock() {
@@ -783,7 +776,6 @@ void MyOnDiskFS::checkAndCloseFile(MyFsFileInfo* file) {
         sdfr->root->fileInfos[index].open = false;
         openFiles--;
         updateTime(index, 0);
-        calcBlocksAndSynchronize(ROOT, index);
     }
 }
 
