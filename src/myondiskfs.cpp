@@ -383,20 +383,19 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
     size_t missing = 0;
     if (index >= 0) {
         MyFsFileInfo *file = &(sdfr->root->fileInfos[index]);
-        size_t s = file->dataSize;
         //falls offset größer als die dateigrößer selber ist -> dazwischen ist freier platz welcher allokiert und mit 0en aufgefüllt wird
         if (offset > file->dataSize) {
             missing = offset - file->dataSize;
             char puf[missing + size];
             memset(puf, '0', missing);
             memcpy(puf + missing, buf, size);
-            finalSize += write(file, puf, missing + size, offset - missing, fileInfo, -1);    //neues offset muss um missing viele Bytes nach vorne verschoben werden
+            finalSize += write(file, puf, missing + size, offset - missing, fileInfo, -1);    //neues offset muss um missing viele Bytes nach vorne verschoben werden, dass die 0en auch geschrieben werden und somit keine Lücke bleibt
         } else{
             finalSize += write(file, buf, size, offset, fileInfo, -1);
         }
 
         file->dataSize = offset + size > file->dataSize ? offset + size : file->dataSize;   //falls was überschrieben wird -> dataSize bleibt gleich, falls was dazukam offset + size
-        finalSize -= missing;   //nötig??? eigentlich werden die 0en auch noch geschrieben
+        finalSize -= missing;   //TODO nötig??? eigentlich werden die 0en auch noch geschrieben
         updateTime(index, 0);
         return finalSize;
     }
@@ -406,14 +405,8 @@ int MyOnDiskFS::fuseWrite(const char *path, const char *buf, size_t size, off_t 
 unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo, int build) {
     unsigned int totalSize = 0;
     unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
-    unsigned int endInLastBlock = (startInFirstBlock + size) % BLOCK_SIZE;  //wo die Bytes aufgehört werden zu lesen
     unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
-    unsigned int startingBlock;
-    if (build < 0) {
-        startingBlock = sdfr->root->fileInfos[index].startBlock;   //the first block of the file
-    } else{
-        startingBlock = sdfr->getIndex(build);
-    }
+    unsigned int startingBlock = build < 0 ? file->startBlock : sdfr->getIndex(build);
 
     //hole neuen Block falls aktueller Block voll ist
     if (numBlocksForward == file->noBlocks) {
@@ -427,31 +420,32 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
     }
 
     unsigned int freeSizeInCurrentBlock = BLOCK_SIZE - startInFirstBlock;
-    char firstPuffer[BLOCK_SIZE];
-    char lastPuffer[BLOCK_SIZE];
-    char middlePuffer[BLOCK_SIZE];
+    char buffer[BLOCK_SIZE];
 
-    if (startInFirstBlock != 0) {     //startInFirstBlock ist nur dann != 0 falls was in dem Block übersprungen wird -> das muss in den puffer mitgenommen werden
+    //startInFirstBlock nur beim ersten Block ungleich 0
+    if (startInFirstBlock != 0) {     //falls im ersten Block Bytes nicht überschrieben werden, müssen diese gespeichert werden
+        //speichert die nicht zu überschreibenden Bytes in den Puffer, was nur ganz am Anfang wenn überhaupt benötigt wird
         if (startingBlock == fileInfo->fh) {
-            memcpy(middlePuffer, puffer, startInFirstBlock);
+            memcpy(buffer, puffer, startInFirstBlock);
         } else{
-            blockDevice->read(startingBlock, firstPuffer);
+            blockDevice->read(startingBlock, buffer);
             fileInfo->fh = startingBlock;
-            memcpy(middlePuffer, firstPuffer, startInFirstBlock);
         }
     }
+
     //falls alle zu schreibenden Bytes in den aktuellen Block passen -> hole bestehende Bytes bis offset -> rest werden neue Bytes
-    if (size <= freeSizeInCurrentBlock) {
-        blockDevice->read(startingBlock, lastPuffer);
-        memcpy(middlePuffer + endInLastBlock, lastPuffer + endInLastBlock, BLOCK_SIZE - endInLastBlock);
-        memcpy(middlePuffer + startInFirstBlock, buf, size);
-        blockDevice->write(startingBlock, middlePuffer);
-        totalSize += size;
+    if (size > freeSizeInCurrentBlock) {
+        memcpy(buffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
+        blockDevice->write(startingBlock, buffer);
+        totalSize += freeSizeInCurrentBlock + write(file, buf + freeSizeInCurrentBlock, size - freeSizeInCurrentBlock,
+                                                    offset + freeSizeInCurrentBlock, fileInfo, build);
     } else {
-        memcpy(middlePuffer + startInFirstBlock, buf, freeSizeInCurrentBlock);
-        blockDevice->write(startingBlock, middlePuffer);
-        //buf muss um freeSizeInCurrentBlock nach vorne verschoben werden, size verringert sich, offset erhöht sich um freeSizeInCurrentBlock -> offset ist ab nun immer mod BLOCK_SIZE = 0
-        totalSize += freeSizeInCurrentBlock + write(file, buf + freeSizeInCurrentBlock, size - freeSizeInCurrentBlock, offset + freeSizeInCurrentBlock, fileInfo, build);
+        blockDevice->read(startingBlock, buffer);
+        if (build < 0)
+            fileInfo->fh = startingBlock;
+        memcpy(buffer + startInFirstBlock, buf, size);
+        blockDevice->write(startingBlock, buffer);
+        totalSize += size;
     }
     return totalSize;
 }
