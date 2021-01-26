@@ -423,7 +423,7 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
     char buffer[BLOCK_SIZE];
 
     //startInFirstBlock nur beim ersten Block ungleich 0
-    if (startInFirstBlock != 0) {     //falls im ersten Block Bytes nicht überschrieben werden, müssen diese gespeichert werden
+    if (startInFirstBlock != 0 && fileInfo != nullptr) {     //falls im ersten Block Bytes nicht überschrieben werden, müssen diese gespeichert werden
         //speichert die nicht zu überschreibenden Bytes in den Puffer, was nur ganz am Anfang wenn überhaupt benötigt wird
         if (startingBlock == fileInfo->fh) {
             memcpy(buffer, puffer, startInFirstBlock);
@@ -441,7 +441,7 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
                                                     offset + freeSizeInCurrentBlock, fileInfo, build);
     } else {
         blockDevice->read(startingBlock, buffer);
-        if (build < 0)
+        if (build < 0 && fileInfo != nullptr)
             fileInfo->fh = startingBlock;
         memcpy(buffer + startInFirstBlock, buf, size);
         blockDevice->write(startingBlock, buffer);
@@ -477,7 +477,7 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
 /// \return 0 on success, -ERRNO on failure.
 int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
-    return(fuseTruncate(path, newSize, nullptr));
+    RETURN(fuseTruncate(path, newSize, nullptr));
 }
 
 /// @brief Truncate a file.
@@ -505,16 +505,15 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
                 return -ENOMEM;
             return write(file, puf, missing, file->dataSize, fileInfo, -1);
         } else {
-            int numBlocksOld = file->dataSize % BLOCK_SIZE == 0 ? file->dataSize / BLOCK_SIZE : file->dataSize / BLOCK_SIZE + 1;
-            int toDelete = numBlocksOld - numBlocksNew;
+            int toDelete = file->numBlocks - numBlocksNew;
             int current = file->startBlock;
-            for (int i = 0; i < numBlocksOld; i++) {
+            for (int i = 0; i < file->numBlocks; i++) {
                 int next = sdfr->fat->FATTable[current];
-                if (i >= numBlocksOld - toDelete - 1) {
+                if (i >= file->numBlocks - toDelete - 1) {     //letzter Block der Datei muss EOF haben -> toDelete - 1
                     sdfr->fat->FATTable[current] = EOF;
                     calcBlocksAndSynchronize(FAT, current);
                 }
-                if (i >= numBlocksOld - toDelete) {
+                if (i >= file->numBlocks - toDelete) {
                     sdfr->dmap->freeBlocks[current] = 0;
                     calcBlocksAndSynchronize(DMAP, current);
                 }
@@ -753,9 +752,11 @@ bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
     int numNewBlocks = storageToAlloc % BLOCK_SIZE == 0 ? storageToAlloc / BLOCK_SIZE : storageToAlloc / BLOCK_SIZE + 1;
     int currentBlock = 0;
     int counter = 0;
+    LOGF("neededStorage: %d", neededStorage);
     while(true) {
         if (sdfr->dmap->freeBlocks[currentBlock] == 0) {
             counter++;
+            LOGF("counter: %d | freeBlock: %d", counter, currentBlock);
         }
         currentBlock++;
         if (counter >= numNewBlocks)

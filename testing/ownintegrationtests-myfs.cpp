@@ -17,6 +17,7 @@
 #define UNLINKFILE "unlinkOpenedFile"
 #define SMALL_SIZE 1024
 #define LARGE_SIZE 20*1024*1024
+#define LARGEST_SIZE (131072 - 1321) * 512    //num max blocks - 1 because in arrays counting starts with 0 -> 1321 is where data begins -> 512 is one Block
 
 TEST_CASE("T-ut1", "[Part_1]") {
     printf("Testcase unittest1: Rename file\n");
@@ -491,4 +492,60 @@ TEST_CASE("T-ut10", "[Part_2]") {
     fd = open(UNLINKFILE, O_EXCL | O_RDWR | O_CREAT, 0666);
     REQUIRE(fd >= 0);
     REQUIRE(unlink(UNLINKFILE) >= 0);
+}*/
+
+TEST_CASE("T-ut12", "[Part_2]") {
+    printf("Testcase integrationtest 11: big file and then try to write\n");
+    int fd;
+    char* w= new char[LARGEST_SIZE];
+    memset(w, 0, LARGEST_SIZE);
+    char* unableToWrite = new char[SMALL_SIZE];
+    memset(unableToWrite, 0, SMALL_SIZE);
+
+    unlink(FILENAME);
+    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w, LARGEST_SIZE) == LARGEST_SIZE);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, unableToWrite, SMALL_SIZE) <= 0);
+    REQUIRE(close(fd) >= 0);
+
+    delete[] w;
+    delete[] unableToWrite;
+
+    REQUIRE(unlink(FILENAME) >= 0);
+}
+
+/*TEST_CASE("T-ut13", "[Part_1]") {
+    printf("Testcase unittest3: Truncate a closed file to a size which is not a multiple of BLOCK_SIZE\n");
+
+    int fd;
+
+    // remove file (just to be sure)
+    unlink(FILENAME);
+
+    char* w= new char[512];
+    memset(w, 0, 512);
+
+    // Create file
+    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w, 512) == 512);
+    REQUIRE(close(fd) >= 0);
+
+    // Truncate closed file
+    REQUIRE(truncate(FILENAME, SMALL_SIZE) == 0);
+
+    // Check file size
+    struct stat s;
+    REQUIRE(stat(FILENAME, &s) == 0);
+    REQUIRE(s.st_size == SMALL_SIZE);
+
+    delete [] w;
+
+    // remove file
+    REQUIRE(unlink(FILENAME) >= 0);
 }*/
