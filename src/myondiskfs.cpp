@@ -86,7 +86,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
         sdfr->dmap->freeBlocks[nextFreeBlock] = 1;
         calcBlocksAndSynchronize(DMAP, nextFreeBlock);
-        newData->noBlocks = 1;
+        newData->numBlocks = 1;
         calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);
         sdfr->superBlock->existingFiles += 1;
         calcBlocksAndSynchronize(SUPERBLOCK, 0);
@@ -110,7 +110,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
     if (index >= 0) {
         MyFsFileInfo* file = &(sdfr->root->fileInfos[index]);
         checkAndCloseFile(file);
-        unsigned int numBlocks = sdfr->root->fileInfos[index].noBlocks;
+        unsigned int numBlocks = sdfr->root->fileInfos[index].numBlocks;
         int blocks[numBlocks];
         int currentBlock = file->startBlock;
         for (int i = 0; i < numBlocks; i++) { //füllt array blocks mit allen Indizes von fat bzw dmap auf
@@ -409,12 +409,12 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
     unsigned int startingBlock = build < 0 ? file->startBlock : sdfr->getIndex(build);
 
     //hole neuen Block falls aktueller Block voll ist
-    if (numBlocksForward == file->noBlocks) {
+    if (numBlocksForward == file->numBlocks) {
         int previousBlock = getStartingBlock(startingBlock, numBlocksForward - 1);  //numBlocksForward-1 da numBlocksForward den Block repräsentiert, der erst noch allokiert werden muss
         startingBlock = findNextFreeBlock();
         int blocks[] = {previousBlock, (int) startingBlock};
         fillFatAndDmap(blocks, 2, true);
-        file->noBlocks++;
+        file->numBlocks++;
     } else{
         startingBlock = getStartingBlock(startingBlock, numBlocksForward);  //getting first Block relative to offset
     }
@@ -523,7 +523,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
         }
 
         file->dataSize = newSize;
-        file->noBlocks = numBlocksNew;
+        file->numBlocks = numBlocksNew;
         updateTime(index, 1);
     }
 
@@ -783,7 +783,7 @@ void MyOnDiskFS::buildStructure() {
         MyFsFileInfo *file = new MyFsFileInfo;
         sdfr->dmap->freeBlocks[sdfr->getIndex(i)] = 1;   //allokiere ersten Block -> Rest allokiert write
         calcBlocksAndSynchronize(DMAP, sdfr->getIndex(i));
-        file->noBlocks = 1;
+        file->numBlocks = 1;
         write(file, buf, s, 0, nullptr, i);
         delete file;
     }
