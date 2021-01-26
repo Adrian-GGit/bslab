@@ -1,10 +1,4 @@
-//
-//  test-myfs.cpp
 //  testing
-//
-//  Created by Oliver Waldhorst on 15.12.17.
-//  Copyright © 2017 Oliver Waldhorst. All rights reserved.
-//
 
 #include "catch.hpp"
 
@@ -293,11 +287,18 @@ TEST_CASE("T-ut6", "[Part_2]") {
 }
 
 TEST_CASE("T-ut7", "[Part_2]") {
-    printf("Testcase integrationtest 7: write 2.1.1\n");
-    char buf1[510]; memset(buf1, 'a', 510);
-    const char *buf2 = "bbbbb";
-    char buf3[514]; memset(buf3, 'a', 514); memcpy(buf3 + 509, buf2, strlen(buf2));
-    char *buf4= new char[514];
+    printf("Testcase integrationtest 7: write 2.1.1.1 and 2.1.1.2 and 2.1.2\n");
+    char buf1[514]; memset(buf1, 'a', 514);
+    char *buf2 = "bb";
+    char *buf21 = "bbb";
+    char *buf22 = "bbbb";
+    char *buf3 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabba";
+    REQUIRE(strlen(buf3) == 514);
+    char *buf4 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbb";
+    REQUIRE(strlen(buf4) == 514);
+    char *buf5 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbb";
+    REQUIRE(strlen(buf5) == 515);
+    char *buf6= new char[515];
 
     int fd;
     unlink(FILENAME);
@@ -306,19 +307,43 @@ TEST_CASE("T-ut7", "[Part_2]") {
     REQUIRE(write(fd, buf1, strlen(buf1)) == strlen(buf1));
     REQUIRE(close(fd) >= 0);
 
-    //2.1.1
+    //2.1.1.1
     fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
     REQUIRE(fd >= 0);
-    REQUIRE(lseek(fd, 509, SEEK_SET) == 509);
+    REQUIRE(lseek(fd, 511, SEEK_SET) == 511);
     REQUIRE(write(fd, buf2, strlen(buf2)) == strlen(buf2));
     REQUIRE(close(fd) >= 0);
     fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
     REQUIRE(fd >= 0);
-    REQUIRE(read(fd, buf4, 514) == 514);
-    REQUIRE(memcmp(buf3, buf4, 514) == 0);
+    REQUIRE(read(fd, buf6, 514) == 514);
+    REQUIRE(memcmp(buf3, buf6, 514) == 0);
     REQUIRE(close(fd) >= 0);
 
-    delete [] buf4;
+    //2.1.1.2
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(lseek(fd, 512, SEEK_SET) == 512);
+    REQUIRE(write(fd, buf2, strlen(buf2)) == strlen(buf2));
+    REQUIRE(close(fd) >= 0);
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, buf6, 514) == 514);
+    REQUIRE(memcmp(buf4, buf6, 514) == 0);
+    REQUIRE(close(fd) >= 0);
+
+    //2.1.2
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(lseek(fd, 513, SEEK_SET) == 513);
+    REQUIRE(write(fd, buf2, strlen(buf2)) == strlen(buf2));
+    REQUIRE(close(fd) >= 0);
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, buf6, 515) == 515);
+    REQUIRE(memcmp(buf5, buf6, 515) == 0);
+    REQUIRE(close(fd) >= 0);
+
+    delete [] buf6;
     REQUIRE(unlink(FILENAME) >= 0);
 }
 
