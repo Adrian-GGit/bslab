@@ -605,13 +605,13 @@ TEST_CASE("T-ut14", "[Part_1]") {
     REQUIRE(memcmp(w3, rbuf3, SMALL_SIZE) == 0);
     REQUIRE(close(fd) >= 0);
 
-    /*REQUIRE(truncate(FILENAME, 512) == 0);
+    REQUIRE(truncate(FILENAME, 512) == 0);
     struct stat s;
     REQUIRE(stat(FILENAME, &s) == 0);
-    REQUIRE(s.st_size == 512);*/
+    REQUIRE(s.st_size == 512);
 
-    REQUIRE(truncate(FILENAME2, 512) == 0);
-    /*struct stat s2;
+    /*REQUIRE(truncate(FILENAME2, 512) == 0);
+    struct stat s2;
     REQUIRE(stat(FILENAME2, &s2) == 0);
     REQUIRE(s2.st_size == 512);
 
