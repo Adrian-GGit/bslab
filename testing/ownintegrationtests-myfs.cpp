@@ -519,7 +519,7 @@ TEST_CASE("T-ut12", "[Part_2]") {
     REQUIRE(unlink(FILENAME) >= 0);
 }
 
-/*TEST_CASE("T-ut13", "[Part_1]") {
+TEST_CASE("T-ut13", "[Part_1]") {
     printf("Testcase unittest3: Truncate a closed file to a size which is not a multiple of BLOCK_SIZE\n");
 
     int fd;
@@ -537,15 +537,15 @@ TEST_CASE("T-ut12", "[Part_2]") {
     REQUIRE(close(fd) >= 0);
 
     // Truncate closed file
-    REQUIRE(truncate(FILENAME, SMALL_SIZE) == 0);
+    REQUIRE(truncate(FILENAME, SMALL_SIZE + 1) == 0);
 
     // Check file size
     struct stat s;
     REQUIRE(stat(FILENAME, &s) == 0);
-    REQUIRE(s.st_size == SMALL_SIZE);
+    REQUIRE(s.st_size == SMALL_SIZE + 1);
 
     delete [] w;
 
     // remove file
     REQUIRE(unlink(FILENAME) >= 0);
-}*/
+}

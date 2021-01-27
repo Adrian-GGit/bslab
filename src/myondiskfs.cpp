@@ -500,10 +500,10 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_i
         if(newSize > file->dataSize) {
             int missing = newSize - file->dataSize;
             char puf[missing];
-            memset(puf, '0', missing);
+            memset(puf, '\0', missing);
             if (!enoughStorage(index, missing))
                 return -ENOMEM;
-            return write(file, puf, missing, file->dataSize, fileInfo, -1);
+            write(file, puf, missing, file->dataSize, fileInfo, -1);
         } else {
             int toDelete = file->numBlocks - numBlocksNew;
             int current = file->startBlock;
