@@ -661,7 +661,7 @@ void MyOnDiskFS::updateTime(int index, int timeIndex) {
 int MyOnDiskFS::findNextFreeBlock() {
     int currentBlock = 0;
     while(true) {
-        if (currentBlock >= NUM_BLOCKS) {      //TODO nötig das nachzuschauen? es wird ja immer schon am anfang geprüft ob genug Blöcke verfügbar sind
+        if (currentBlock >= NUM_BLOCKS) {
             RETURN(-ENOMEM);
         } else {
             if (sdfr->dmap->freeBlocks[currentBlock] == 0) {
@@ -752,11 +752,9 @@ bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
     int numNewBlocks = storageToAlloc % BLOCK_SIZE == 0 ? storageToAlloc / BLOCK_SIZE : storageToAlloc / BLOCK_SIZE + 1;
     int currentBlock = 0;
     int counter = 0;
-    LOGF("neededStorage: %d", neededStorage);
     while(true) {
         if (sdfr->dmap->freeBlocks[currentBlock] == 0) {
             counter++;
-            LOGF("counter: %d | freeBlock: %d", counter, currentBlock);
         }
         currentBlock++;
         if (counter >= numNewBlocks)

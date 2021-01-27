@@ -26,7 +26,7 @@ add_executable(unittests src/blockdevice.cpp
         testing/main.cpp
         testing/utest-blockdevice.cpp
         testing/ownintegrationtests-myfs.cpp
-        testing/tools.cpp testing/itest.cpp testing/testForSync.cpp)
+        testing/tools.cpp testing/itest.cpp testing/testForSync.cpp testing/ownunittests.cpp)
 
 add_executable(integrationtests
         src/blockdevice.cpp
