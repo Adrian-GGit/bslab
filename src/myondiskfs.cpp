@@ -64,9 +64,9 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
     LOGF("path: %s | existingFiles: %d | numdirs: %d | openFiles: %d\n", path, sdfr->superBlock->existingFiles, NUM_DIR_ENTRIES, openFiles);
 
-    int nextFreeBlock = findNextFreeBlock();
+    //int nextFreeBlock = findNextFreeBlock();
 
-    if (sdfr->superBlock->existingFiles < NUM_DIR_ENTRIES && nextFreeBlock >= 0) { //>= 0 -> mem vorhanden um neue Datei anzulegen
+    if (sdfr->superBlock->existingFiles < NUM_DIR_ENTRIES) {//&& nextFreeBlock >= 0) { //>= 0 -> mem vorhanden um neue Datei anzulegen
         index = searchForFile(path);
         if(index >= 0) {
             RETURN(-EEXIST)
@@ -82,12 +82,12 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->c_time = time(NULL);
         newData->userId = getuid();
         newData->groupId = getgid();
-        newData->startBlock = nextFreeBlock;
+        //newData->startBlock = nextFreeBlock;
 
-        sdfr->dmap->freeBlocks[nextFreeBlock] = 1;
+        /*sdfr->dmap->freeBlocks[nextFreeBlock] = 1;
         calcBlocksAndSynchronize(DMAP, nextFreeBlock);
         newData->numBlocks = 1;
-        calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);
+        calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);*/
         sdfr->superBlock->existingFiles += 1;
         calcBlocksAndSynchronize(SUPERBLOCK, 0);
         RETURN(0);
@@ -112,7 +112,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         checkAndCloseFile(file);
         unsigned int numBlocks = sdfr->root->fileInfos[index].numBlocks;
         int blocks[numBlocks];
-        int currentBlock = file->startBlock;
+        int currentBlock = file->startBlock;    //TODO evtl in extra if falls numBlocks == 0
         for (int i = 0; i < numBlocks; i++) { //füllt array blocks mit allen Indizes von fat bzw dmap auf
             blocks[i] = currentBlock;
             currentBlock = sdfr->fat->FATTable[currentBlock];
@@ -312,7 +312,7 @@ int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset,
 }
 
 unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo, int build) {
-    if (offset > dataSize) {
+    if (offset > dataSize || sdfr->root->fileInfos[index].numBlocks == 0) {
         RETURN(0);
     }
 
@@ -406,7 +406,16 @@ unsigned int MyOnDiskFS::write(MyFsFileInfo *file, const char *buf, size_t size,
     unsigned int totalSize = 0;
     unsigned int startInFirstBlock = offset % BLOCK_SIZE;   //wo die Bytes angefangen werden zu lesen
     unsigned int numBlocksForward = offset / BLOCK_SIZE;    //number of blocks that need to be read
-    unsigned int startingBlock = build < 0 ? file->startBlock : sdfr->getIndex(build);
+    unsigned int startingBlock;
+    if (file->numBlocks == 0) {
+        startingBlock = file->startBlock = findNextFreeBlock();
+        file->numBlocks = 1;
+        calcBlocksAndSynchronize(ROOT, index);
+        sdfr->dmap->freeBlocks[startingBlock] = 1;   //allokiere ersten Block -> Rest allokiert write
+        calcBlocksAndSynchronize(DMAP, startingBlock);
+    } else{
+        startingBlock = build < 0 ? file->startBlock : sdfr->getIndex(build);
+    }
 
     //hole neuen Block falls aktueller Block voll ist
     if (numBlocksForward == file->numBlocks) {
@@ -750,7 +759,7 @@ bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
     size_t missingStorageInLastBlock = BLOCK_SIZE - (file->dataSize % BLOCK_SIZE); //berechnet wie viel Platz noch im letzten von der file allokierten Block verfügbar ist
     size_t storageToAlloc = neededStorage - missingStorageInLastBlock;
     int numNewBlocks = storageToAlloc % BLOCK_SIZE == 0 ? storageToAlloc / BLOCK_SIZE : storageToAlloc / BLOCK_SIZE + 1;
-    int currentBlock = 0;
+    int currentBlock = 0;   //TODO auf dataindex setzen
     int counter = 0;
     while(true) {
         if (sdfr->dmap->freeBlocks[currentBlock] == 0) {
