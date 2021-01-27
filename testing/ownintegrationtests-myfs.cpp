@@ -496,7 +496,7 @@ TEST_CASE("T-ut10", "[Part_2]") {
     REQUIRE(unlink(UNLINKFILE) >= 0);
 }*/
 
-TEST_CASE("T-ut12", "[Part_2]") {
+/*TEST_CASE("T-ut12", "[Part_2]") {
     printf("Testcase integrationtest 11: big file and then try to write\n");
     int fd;
     char* w= new char[LARGEST_SIZE];
@@ -519,7 +519,7 @@ TEST_CASE("T-ut12", "[Part_2]") {
     delete[] unableToWrite;
 
     REQUIRE(unlink(FILENAME) >= 0);
-}
+}*/
 
 TEST_CASE("T-ut13", "[Part_1]") {
     printf("Testcase unittest3: Truncate a closed file to a size which is not a multiple of BLOCK_SIZE\n");
@@ -684,7 +684,7 @@ TEST_CASE("T-ut15", "[Part_1]") {
     REQUIRE(unlink(FILENAME3) >= 0);
 }
 
-TEST_CASE("T-ut16", "[Part_1]") {
+/*TEST_CASE("T-ut16", "[Part_1]") {
     printf("Testcase unittest3: Truncate a closed 0 size file up to 512\n");
 
     int fd;
@@ -701,10 +701,10 @@ TEST_CASE("T-ut16", "[Part_1]") {
 
     REQUIRE(truncate(FILENAME, 512) == 0);
 
-    /*fd = open(FILENAME2, O_EXCL | O_RDWR, 0666);
+    fd = open(FILENAME2, O_EXCL | O_RDWR, 0666);
     REQUIRE(fd >= 0);
     REQUIRE(truncate(FILENAME2, 512) == 0);
-    REQUIRE(close(fd) >= 0);*/
+    REQUIRE(close(fd) >= 0);
 
     struct stat s;
     REQUIRE(stat(FILENAME, &s) == 0);
@@ -712,7 +712,7 @@ TEST_CASE("T-ut16", "[Part_1]") {
 
     /*struct stat s;
     REQUIRE(stat(FILENAME2, &s) == 0);
-    REQUIRE(s.st_size == 512);*/
+    REQUIRE(s.st_size == 512);
 
     REQUIRE(unlink(FILENAME) >= 0);
-}
+}*/

@@ -27,8 +27,6 @@ public:
 
     int openFiles = 0;
     int index = -1;
-    
-    // TODO: [PART 2] You may add attributes of your file system here
 
     MyFS();
     ~MyFS();
