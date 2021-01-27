@@ -13,6 +13,8 @@
 #include "tools.hpp"
 
 #define FILENAME "file"
+#define FILENAME2 "file2"
+#define FILENAME3 "file3"
 #define NEWFILENAME "file2"
 #define UNLINKFILE "unlinkOpenedFile"
 #define SMALL_SIZE 1024
@@ -548,4 +550,87 @@ TEST_CASE("T-ut13", "[Part_1]") {
 
     // remove file
     REQUIRE(unlink(FILENAME) >= 0);
+}
+
+TEST_CASE("T-ut14", "[Part_1]") {
+    printf("Testcase unittest3: chaotic test\n");
+
+    int fd;
+
+    unlink(FILENAME);
+    unlink(FILENAME2);
+    unlink(FILENAME3);
+
+    char* w1 = new char[SMALL_SIZE];
+    memset(w1, 0, SMALL_SIZE);
+    char* w2 = new char[SMALL_SIZE];
+    memset(w2, 1, SMALL_SIZE);
+    char* w3 = new char[SMALL_SIZE];
+    memset(w3, 2, SMALL_SIZE);
+
+    char *rbuf1= new char[SMALL_SIZE];
+    char *rbuf2= new char[SMALL_SIZE];
+    char *rbuf3= new char[SMALL_SIZE];
+
+    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w1, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME2, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w2, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME3, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w3, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, rbuf1, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(memcmp(w1, rbuf1, SMALL_SIZE) == 0);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME2, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, rbuf2, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(memcmp(w2, rbuf2, SMALL_SIZE) == 0);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME3, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, rbuf3, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(memcmp(w3, rbuf3, SMALL_SIZE) == 0);
+    REQUIRE(close(fd) >= 0);
+
+    /*REQUIRE(truncate(FILENAME, 512) == 0);
+    struct stat s;
+    REQUIRE(stat(FILENAME, &s) == 0);
+    REQUIRE(s.st_size == 512);*/
+
+    REQUIRE(truncate(FILENAME2, 512) == 0);
+    /*struct stat s2;
+    REQUIRE(stat(FILENAME2, &s2) == 0);
+    REQUIRE(s2.st_size == 512);
+
+    REQUIRE(truncate(FILENAME3, 512) == 0);
+    struct stat s3;
+    REQUIRE(stat(FILENAME3, &s3) == 0);
+    REQUIRE(s3.st_size == 512);*/
+
+
+    delete [] w1;
+    delete [] w2;
+    delete [] w3;
+
+    delete [] rbuf1;
+    delete [] rbuf2;
+    delete [] rbuf3;
+
+    // remove file
+    REQUIRE(unlink(FILENAME) >= 0);
+    REQUIRE(unlink(FILENAME2) >= 0);
+    REQUIRE(unlink(FILENAME3) >= 0);
 }
