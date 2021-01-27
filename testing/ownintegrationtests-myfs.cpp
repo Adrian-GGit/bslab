@@ -602,7 +602,7 @@ TEST_CASE("T-ut14", "[Part_1]") {
 }
 
 TEST_CASE("T-ut15", "[Part_1]") {
-    printf("Testcase unittest3: chaotic test\n");
+    printf("Testcase unittest3: test everything important\n");
 
     int fd;
 
@@ -669,6 +669,16 @@ TEST_CASE("T-ut15", "[Part_1]") {
     REQUIRE(stat(FILENAME3, &s3) == 0);
     REQUIRE(s3.st_size == 512);*/
 
+    fd = open(FILENAME2, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w2, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME2, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, rbuf2, SMALL_SIZE) == SMALL_SIZE);
+    REQUIRE(memcmp(w2, rbuf2, SMALL_SIZE) == 0);
+    REQUIRE(close(fd) >= 0);
 
     delete [] w1;
     delete [] w2;
