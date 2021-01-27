@@ -112,7 +112,7 @@ int MyOnDiskFS::fuseUnlink(const char *path) {
         checkAndCloseFile(file);
         unsigned int numBlocks = sdfr->root->fileInfos[index].numBlocks;
         int blocks[numBlocks];
-        int currentBlock = file->startBlock;    //TODO evtl in extra if falls numBlocks == 0
+        int currentBlock = file->startBlock;
         for (int i = 0; i < numBlocks; i++) { //füllt array blocks mit allen Indizes von fat bzw dmap auf
             blocks[i] = currentBlock;
             currentBlock = sdfr->fat->FATTable[currentBlock];
@@ -298,7 +298,6 @@ int MyOnDiskFS::fuseOpen(const char *path, struct fuse_file_info *fileInfo) {
 /// -ERRNO on failure.
 int MyOnDiskFS::fuseRead(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
     LOGM();
-    //TODO fragen wie das mit read mitten aus einer file funktionieren soll: size ist immer 4096
     LOGF( "--> Trying to read %s, %lu, %lu\n", path, (unsigned long) offset, size );
     index = searchForFile(path);
     size_t finalSize;
@@ -759,7 +758,7 @@ bool MyOnDiskFS::enoughStorage(int index, size_t neededStorage) {
     size_t missingStorageInLastBlock = BLOCK_SIZE - (file->dataSize % BLOCK_SIZE); //berechnet wie viel Platz noch im letzten von der file allokierten Block verfügbar ist
     size_t storageToAlloc = neededStorage - missingStorageInLastBlock;
     int numNewBlocks = storageToAlloc % BLOCK_SIZE == 0 ? storageToAlloc / BLOCK_SIZE : storageToAlloc / BLOCK_SIZE + 1;
-    int currentBlock = 0;   //TODO auf dataindex setzen
+    int currentBlock = sdfr->superBlock->myDATAindex;
     int counter = 0;
     while(true) {
         if (sdfr->dmap->freeBlocks[currentBlock] == 0) {
@@ -780,8 +779,6 @@ void MyOnDiskFS::checkAndCloseFile(MyFsFileInfo* file) {
         updateTime(index, 0);
     }
 }
-
-//TODO manche hilfsfunktionen sind dieselben wie bei inmemoryfs -> gleiche funktionen in basisklasse myfs
 
 void MyOnDiskFS::buildStructure() {
     for (int i = 0; i < NUM_SDFR - 1; i++) {

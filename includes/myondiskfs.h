@@ -16,8 +16,6 @@ protected:
 public:
     static MyOnDiskFS *Instance();
 
-    // TODO: [PART 1] Add attributes of your file system here
-
     char puffer[BLOCK_SIZE];
 
     SDFR* sdfr;
@@ -45,7 +43,6 @@ public:
     virtual int fuseTruncate(const char *path, off_t offset, struct fuse_file_info *fileInfo);
     virtual void fuseDestroy();
 
-    // TODO: Add methods of your file system here
     void buildStructure();
     void readContainer();
     void setIndexes();
