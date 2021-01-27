@@ -553,6 +553,55 @@ TEST_CASE("T-ut13", "[Part_1]") {
 }
 
 TEST_CASE("T-ut14", "[Part_1]") {
+    printf("Testcase unittest3: Truncate a closed file to 0 and after it write\n");
+
+    int fd;
+
+    unlink(FILENAME);
+
+    char* w= new char[512];
+    memset(w, 0, 512);
+
+    char *buf= new char[512];
+
+    // Create file
+    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w, 512) == 512);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, buf, 512) == 512);
+    REQUIRE(memcmp(w, buf, 512) == 0);
+    REQUIRE(close(fd) >= 0);
+
+    // Truncate closed file
+    REQUIRE(truncate(FILENAME, 0) == 0);
+
+    // Check file size
+    struct stat s;
+    REQUIRE(stat(FILENAME, &s) == 0);
+    REQUIRE(s.st_size == 0);
+
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(write(fd, w, 512) == 512);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(read(fd, buf, 512) == 512);
+    REQUIRE(memcmp(w, buf, 512) == 0);
+    REQUIRE(close(fd) >= 0);
+
+    delete [] w;
+
+    // remove file
+    REQUIRE(unlink(FILENAME) >= 0);
+}
+
+TEST_CASE("T-ut15", "[Part_1]") {
     printf("Testcase unittest3: chaotic test\n");
 
     int fd;
