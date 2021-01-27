@@ -64,8 +64,6 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
 
     LOGF("path: %s | existingFiles: %d | numdirs: %d | openFiles: %d\n", path, sdfr->superBlock->existingFiles, NUM_DIR_ENTRIES, openFiles);
 
-    //int nextFreeBlock = findNextFreeBlock();
-
     if (sdfr->superBlock->existingFiles < NUM_DIR_ENTRIES) {//&& nextFreeBlock >= 0) { //>= 0 -> mem vorhanden um neue Datei anzulegen
         index = searchForFile(path);
         if(index >= 0) {
@@ -82,12 +80,7 @@ int MyOnDiskFS::fuseMknod(const char *path, mode_t mode, dev_t dev) {
         newData->c_time = time(NULL);
         newData->userId = getuid();
         newData->groupId = getgid();
-        //newData->startBlock = nextFreeBlock;
 
-        /*sdfr->dmap->freeBlocks[nextFreeBlock] = 1;
-        calcBlocksAndSynchronize(DMAP, nextFreeBlock);
-        newData->numBlocks = 1;
-        calcBlocksAndSynchronize(ROOT, sdfr->superBlock->existingFiles);*/
         sdfr->superBlock->existingFiles += 1;
         calcBlocksAndSynchronize(SUPERBLOCK, 0);
         RETURN(0);

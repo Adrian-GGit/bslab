@@ -659,16 +659,6 @@ TEST_CASE("T-ut15", "[Part_1]") {
     REQUIRE(stat(FILENAME, &s) == 0);
     REQUIRE(s.st_size == 512);
 
-    /*REQUIRE(truncate(FILENAME2, 512) == 0);
-    struct stat s2;
-    REQUIRE(stat(FILENAME2, &s2) == 0);
-    REQUIRE(s2.st_size == 512);
-
-    REQUIRE(truncate(FILENAME3, 512) == 0);
-    struct stat s3;
-    REQUIRE(stat(FILENAME3, &s3) == 0);
-    REQUIRE(s3.st_size == 512);*/
-
     fd = open(FILENAME2, O_EXCL | O_RDWR, 0666);
     REQUIRE(fd >= 0);
     REQUIRE(write(fd, w2, SMALL_SIZE) == SMALL_SIZE);
@@ -692,4 +682,37 @@ TEST_CASE("T-ut15", "[Part_1]") {
     REQUIRE(unlink(FILENAME) >= 0);
     REQUIRE(unlink(FILENAME2) >= 0);
     REQUIRE(unlink(FILENAME3) >= 0);
+}
+
+TEST_CASE("T-ut16", "[Part_1]") {
+    printf("Testcase unittest3: Truncate a closed 0 size file up to 512\n");
+
+    int fd;
+
+    unlink(FILENAME);
+
+    fd = open(FILENAME, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(close(fd) >= 0);
+
+    fd = open(FILENAME2, O_EXCL | O_RDWR | O_CREAT, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(close(fd) >= 0);
+
+    REQUIRE(truncate(FILENAME, 512) == 0);
+
+    /*fd = open(FILENAME2, O_EXCL | O_RDWR, 0666);
+    REQUIRE(fd >= 0);
+    REQUIRE(truncate(FILENAME2, 512) == 0);
+    REQUIRE(close(fd) >= 0);*/
+
+    struct stat s;
+    REQUIRE(stat(FILENAME, &s) == 0);
+    REQUIRE(s.st_size == 512);
+
+    /*struct stat s;
+    REQUIRE(stat(FILENAME2, &s) == 0);
+    REQUIRE(s.st_size == 512);*/
+
+    REQUIRE(unlink(FILENAME) >= 0);
 }
