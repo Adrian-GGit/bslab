@@ -478,6 +478,7 @@ int MyOnDiskFS::fuseRelease(const char *path, struct fuse_file_info *fileInfo) {
 /// \return 0 on success, -ERRNO on failure.
 int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
     LOGM();
+    LOGF("fuseTruncate without fileInfo - path: %s | newSize: %d", path, newSize);
     RETURN(fuseTruncate(path, newSize, nullptr));
 }
 
@@ -493,6 +494,7 @@ int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize) {
 /// \return 0 on success, -ERRNO on failure.
 int MyOnDiskFS::fuseTruncate(const char *path, off_t newSize, struct fuse_file_info *fileInfo) {
     LOGM();
+    LOGF("fuseTruncate with fileInfo - path: %s | newSize: %d", path, newSize);
 
     index = searchForFile(path);
     if (index >= 0) {
