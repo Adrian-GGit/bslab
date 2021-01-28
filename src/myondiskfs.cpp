@@ -317,7 +317,7 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
     unsigned int startingBlock = build < 0 ? sdfr->root->fileInfos[index].startBlock : sdfr->getIndex(build);
     startingBlock = getStartingBlock(startingBlock, numBlocksForward);
 
-    unsigned int bytesInFileAfterOffset = dataSize - (numBlocksForward * BLOCK_SIZE);    //Anzahl Bytes die hinter offset in der Datei stehen
+    unsigned int bytesInFileAfterOffset = dataSize - offset;    //Anzahl Bytes die hinter offset in der Datei stehen
     unsigned int bytesToReadAfterOffset = bytesInFileAfterOffset > size ? size: bytesInFileAfterOffset;    //entweder begrenzt bytesAfterOffset oder size die Anzahl zu lesender Bytes
 
     char blockBuffer[BLOCK_SIZE];
@@ -328,19 +328,15 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
             memcpy(blockBuffer, puffer, BLOCK_SIZE);
         } else{
             blockDevice->read(startingBlock, blockBuffer);
-            fileInfo->fh = startingBlock;
+            if (fileInfo != nullptr)
+                fileInfo->fh = startingBlock;
         }
         if (bytesToReadAfterOffset > BLOCK_SIZE) {
-            if (count == 0) {   //anfangs muss ein Teil des 512er Blocks abgeschnitten werden abhängig von startInFirstBlock
-                memcpy(buf, blockBuffer + startInFirstBlock, BLOCK_SIZE - startInFirstBlock);
-                totalSize += BLOCK_SIZE - startInFirstBlock;
-                startInFirstBlock = 0;
-            } else{
-                memcpy(buf + count, blockBuffer, BLOCK_SIZE);
-                totalSize += BLOCK_SIZE;
-            }
+            memcpy(buf + count, blockBuffer + startInFirstBlock, BLOCK_SIZE - startInFirstBlock);
+            totalSize += BLOCK_SIZE - startInFirstBlock;
+            startInFirstBlock = 0;
         } else{
-            memcpy(buf + count, blockBuffer, bytesToReadAfterOffset);
+            memcpy(buf + count, blockBuffer + startInFirstBlock, bytesToReadAfterOffset);
             totalSize += bytesToReadAfterOffset;
             RETURN(totalSize);
         }
@@ -601,7 +597,7 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
 
             if (ret >= 0) {
 
-                this->blockDevice->create("/home/user/bslab/container.bin");
+                this->blockDevice->create("./container.bin");
 
                 setIndexes();
                 buildStructure();
