@@ -317,7 +317,7 @@ unsigned int MyOnDiskFS::read(size_t dataSize, char *buf, size_t size, off_t off
     unsigned int startingBlock = build < 0 ? sdfr->root->fileInfos[index].startBlock : sdfr->getIndex(build);
     startingBlock = getStartingBlock(startingBlock, numBlocksForward);
 
-    unsigned int bytesInFileAfterOffset = dataSize - offset;    //Anzahl Bytes die hinter offset in der Datei stehen
+    unsigned int bytesInFileAfterOffset = dataSize - (numBlocksForward * BLOCK_SIZE);    //Anzahl Bytes die hinter offset in der Datei stehen
     unsigned int bytesToReadAfterOffset = bytesInFileAfterOffset > size ? size: bytesInFileAfterOffset;    //entweder begrenzt bytesAfterOffset oder size die Anzahl zu lesender Bytes
 
     char blockBuffer[BLOCK_SIZE];
