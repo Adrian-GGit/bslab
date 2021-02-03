@@ -596,9 +596,6 @@ void* MyOnDiskFS::fuseInit(struct fuse_conn_info *conn) {
             ret = this->blockDevice->create(((MyFsInfo *) fuse_get_context()->private_data)->contFile);
 
             if (ret >= 0) {
-
-                this->blockDevice->create("/home/user/bslab-master/bin/container.bin");
-
                 setIndexes();
                 buildStructure();
             }
